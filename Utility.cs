@@ -147,12 +147,15 @@ namespace WeaponPaints
 		}
 
         internal static IMenu CreateMenu(
-            string title,
+            Microsoft.Extensions.Localization.LocalizedString title,
             Action<CCSPlayerController>? backAction = null)
         {
             return WeaponPaints.Instance.CreatePanoramaMenu(
-                title,
-                backAction
+                title.Value,
+                backAction,
+                title.Value == WeaponPaints.Instance.Localizer[title.Name].Value
+                    ? title.Name
+                    : null
             );
         }
 

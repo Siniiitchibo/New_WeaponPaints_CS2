@@ -262,9 +262,18 @@ public partial class WeaponPaints
                     ? Localizer["wp_ws_default_knife"].Value
                     : originalKnifeName;
 
-            giveItemMenu.AddMenuOption(
+            var knifeOption = giveItemMenu.AddMenuOption(
                 displayName,
                 (player, _) => HandleGive(player, originalKnifeName));
+
+            if (knifePair.Key is "weapon_knife" or "weapon_knife_t")
+            {
+                SetMenuOptionTranslation(
+                    giveItemMenu,
+                    knifeOption,
+                    "wp_ws_default_knife"
+                );
+            }
         }
         giveItemMenu.PostSelectAction = PostSelectAction.Close;
 
@@ -290,6 +299,8 @@ public partial class WeaponPaints
         {
                 if (!CanUseWsMenu(player))
                     return;
+
+                using var menuCulture = new MenuCulture(player);
 
                 if (!classNamesByWeapon.TryGetValue(
                     selectedWeapon,
@@ -397,8 +408,8 @@ public partial class WeaponPaints
                         continue;
                     }
 
-                    string skinLabel = $"{paintName} ({paintId})";
-                    int selectedPaintId = paintId;
+                string skinLabel = Localizer["wp_skin_menu_entry", paintName, paintId].Value;
+                int selectedPaintId = paintId;
 
                     skinSubMenu.AddMenuOption(skinLabel, (p, _) =>
                     {
@@ -750,6 +761,8 @@ public partial class WeaponPaints
         {
             if (!CanUseWsMenu(player))
                 return;
+
+            using var menuCulture = new MenuCulture(player);
 
             var agentsSelectionMenu = Utility.CreateMenu(
                 Localizer["wp_agent_menu_title"],

@@ -32,11 +32,13 @@ public partial class WeaponPaints
         CCSPlayerController player,
         Action<CCSPlayerController> openMenu)
     {
-        // Open the next menu after the previous selection has finished.
         Server.NextFrame(() =>
         {
             if (CanUseWsMenu(player))
+            {
+                using var menuCulture = new MenuCulture(player);
                 openMenu(player);
+            }
         });
     }
 
@@ -60,6 +62,7 @@ public partial class WeaponPaints
     {
         if (!CanUseWsMenu(player))
             return;
+        using var menuCulture = new MenuCulture(player);
 
         var menu = Utility.CreateMenu(
         Localizer[
@@ -124,6 +127,7 @@ public partial class WeaponPaints
     {
         if (!CanUseWsMenu(player))
             return;
+        using var menuCulture = new MenuCulture(player);
 
         var menu = Utility.CreateMenu(Localizer["wp_ws_title"]);
         if (menu == null)
@@ -218,10 +222,16 @@ public partial class WeaponPaints
         {
             string originalDefaultName = defaultPaintName;
 
-            typesMenu.AddMenuOption(
+            var defaultOption = typesMenu.AddMenuOption(
                 Localizer["wp_ws_default_gloves"],
                 (player, _) =>
                     handleSelection(player, originalDefaultName));
+
+            SetMenuOptionTranslation(
+                typesMenu,
+                defaultOption,
+                "wp_ws_default_gloves"
+            );
         }
 
         var gloveTypes = GlovesList
@@ -271,6 +281,7 @@ public partial class WeaponPaints
     {
         if (!CanUseWsMenu(player))
             return;
+        using var menuCulture = new MenuCulture(player);
 
         var menu = Utility.CreateMenu(
             Localizer["wp_ws_glove_skin_title", gloveTypeName],

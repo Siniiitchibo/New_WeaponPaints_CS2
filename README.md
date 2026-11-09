@@ -14,6 +14,8 @@ Open the menu using `.ws` or `!ws`.
 - StatTrak controls for weapons and knives.
 - MySQL persistence.
 - Workshop-delivered Panorama menu.
+- English and Slovak interface translations, with per-player language selection.
+- Menu text customization through server-side translation files.
 
 ## Server requirements
 
@@ -44,6 +46,27 @@ mm_client_extra_addons "3836442690"
 
 Keep any existing addon IDs, separated by commas. Players download the menu when connecting and may need to confirm the download.
 
+## Language and text customization
+
+English (`en`) and Slovak (`sk`) are included.
+
+Players can change their language in the game console:
+
+```text
+css_lang en
+css_lang sk
+```
+
+Close and reopen the menu after switching languages.
+
+The server's default language is configured through `ServerLanguage` in CounterStrikeSharp's `configs/core.json`.
+
+To customize interface text, edit the plugin's `lang/en.json` or `lang/sk.json` on the server, then restart the server. Preserve formatting placeholders such as `{0}`, `{1}` and `{0:00}`.
+
+Menu labels use plain text; their visual appearance is controlled by CSS. Chat messages support CounterStrikeSharp color tags.
+
+`SkinsLanguage` is a separate plugin setting for cosmetic names loaded from `data`. Use a language available in that folder, such as `en` or `cs`. The Slovak interface does not require `SkinsLanguage` to be set to `sk`.
+
 ## Editing the menu
 
 The main menu uses:
@@ -62,7 +85,9 @@ hud/styles/poplight_submenu.css
 
 The submenu also includes the main stylesheet.
 
-Static layout text is edited in the XML files. Dynamic menu options are supplied by the plugin. Plugin translation files are stored in `lang`.
+All menu interface text is supplied by the server plugin. Customize titles, descriptions, buttons and messages in `lang/en.json` and `lang/sk.json`; text changes do not require a Workshop update.
+
+XML files define the layout, while CSS files control its appearance. Layout and styling changes require recompiling and updating the Workshop addon.
 
 Keep existing panel and button IDs unless you also update their references in `PanoramaMenus.cs`.
 
@@ -78,7 +103,7 @@ Install Counter-Strike 2 Workshop Tools before compiling.
 4. Run:
 
    ```powershell
-   powershell -NoProfile -ExecutionPolicy Bypass -File ".\BuildPoplightMenu.ps1" -Cs2 "C:\Program files\Steam\steamapps\common\Counter-Strike Global Offensive"
+   powershell -NoProfile -ExecutionPolicy Bypass -File ".\BuildPoplightMenu.ps1" -Cs2 "C:\Program Files (x86)\Steam\steamapps\common\Counter-Strike Global Offensive"
    ```
 
 Replace the example installation path with your own CS2 installation.
@@ -115,7 +140,7 @@ Inside `AddonConfig` → `VpkDirectories`, ensure these entries are present:
 
 Preserve all other existing entries. Close and reopen Workshop Manager after changing this configuration.
 
-### Publish
+### Publish your own Workshop item
 
 1. Launch **Counter-Strike 2 Workshop Tools** from Steam.
 2. Select your addon and click **Launch Tools**.
@@ -135,14 +160,19 @@ Publishing a new Workshop item does not require changing the C# code if the layo
 
 ## Updating a published menu
 
+Translation-only changes do not require a Workshop update. Edit the server's plugin translation files and restart the server.
+
 After changing XML or CSS:
 
 1. Run `BuildPoplightMenu.ps1` again.
-2. Update the existing item in Workshop Manager.
-3. Keep the same Workshop item ID.
-4. Restart CS2 before checking the new layout, because Panorama can cache resources during the game session.
+2. Open **Tools → Workshop Manager**.
+3. Select the existing item and click **Re-Upload** to upload the updated addon files. **Edit** changes the item's information.
+4. Keep the same Workshop item ID.
+5. Let Steam download the update, then restart CS2 before testing.
 
-Publishing the server plugin alone does not update the Workshop menu.
+When updating from a menu with fixed XML text to the localized layout, update both the Workshop addon and the server plugin, including its `lang` folder.
+
+Publishing the server plugin alone does not update Workshop resources.
 
 ## Versioning
 

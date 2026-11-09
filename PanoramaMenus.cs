@@ -4,6 +4,8 @@ using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Menu;
+using System.Globalization;
+using CounterStrikeSharp.API.Core.Translations;
 using CS2UIKit;
 using UiPanel = CS2UIKit.Panel;
 
@@ -32,9 +34,24 @@ public partial class WeaponPaints
     private sealed class PanoramaMenu(
         WeaponPaints owner,
         string title,
-        Action<CCSPlayerController>? back) : BaseMenu(title)
+        Action<CCSPlayerController>? back,
+        string? titleKey) : BaseMenu(title)
     {
         public Action<CCSPlayerController>? Back { get; } = back;
+
+        public string? TitleKey { get; } = titleKey;
+
+        public Dictionary<ChatMenuOption, string> TextKeys { get; } = [];
+
+        public string DisplayTitle =>
+            TitleKey is null
+                ? Title
+                : owner.Localizer[TitleKey].Value;
+
+        public string DisplayOption(ChatMenuOption option) =>
+            TextKeys.TryGetValue(option, out var key)
+                ? owner.Localizer[key].Value
+                : option.Text;
 
         public override void Open(CCSPlayerController player)
         {
@@ -42,9 +59,43 @@ public partial class WeaponPaints
         }
     }
 
-    internal IMenu CreatePanoramaMenu(string title, Action<CCSPlayerController>? back)
+    internal IMenu CreatePanoramaMenu(
+        string title,
+        Action<CCSPlayerController>? back,
+        string? titleKey = null)
     {
-        return new PanoramaMenu(this, title, back);
+        return new PanoramaMenu(this, title, back, titleKey);
+    }
+
+    private sealed class MenuCulture : IDisposable
+    {
+        private readonly CultureInfo _culture =
+            CultureInfo.CurrentCulture;
+
+        private readonly CultureInfo _uiCulture =
+            CultureInfo.CurrentUICulture;
+
+        public MenuCulture(CCSPlayerController player)
+        {
+            CultureInfo.CurrentCulture =
+                CultureInfo.CurrentUICulture =
+                    player.GetLanguage();
+        }
+
+        public void Dispose()
+        {
+            CultureInfo.CurrentCulture = _culture;
+            CultureInfo.CurrentUICulture = _uiCulture;
+        }
+    }
+
+    private static void SetMenuOptionTranslation(
+        IMenu menu,
+        ChatMenuOption option,
+        string key)
+    {
+        if (menu is PanoramaMenu panorama)
+            panorama.TextKeys[option] = key;
     }
 
     private void InitializePanoramaMenus(bool hotReload)
@@ -101,6 +152,8 @@ public partial class WeaponPaints
         if (player is null || !player.IsValid || player.IsBot)
             return;
 
+        using var menuCulture = new MenuCulture(player);
+
         if (_panoramaSessions.ContainsKey(player.Slot))
         {
             CloseWsMenus(player);
@@ -114,7 +167,7 @@ public partial class WeaponPaints
             _panoramaSub?.Entity is null)
         {
             player.PrintToChat(
-                " [Poplight] Panorama menu ešte nie je pripravené."
+                Localizer["wp_panorama_not_ready"].Value
             );
             return;
         }
@@ -141,9 +194,10 @@ public partial class WeaponPaints
             return;
         }
 
-        bool isMain = menu.Title == Localizer["wp_ws_title"].Value;
+        using var menuCulture = new MenuCulture(player);
 
-        // Release the previous panel before capturing input for the new one.
+        bool isMain = menu.TitleKey == "wp_ws_title";
+
         _panoramaMain.Hide(player);
         _panoramaSub.Hide(player);
 
@@ -157,6 +211,12 @@ public partial class WeaponPaints
 
         _panoramaSessions[player.Slot] = session;
 
+        DrawPanoramaLabels(
+            player,
+            isMain ? _panoramaMain : _panoramaSub,
+            isMain
+        );
+
         DrawPanoramaMenu(player, session);
 
         if (isMain)
@@ -169,6 +229,7 @@ public partial class WeaponPaints
         CCSPlayerController player,
         PanoramaSession session)
     {
+        using var menuCulture = new MenuCulture(player);
         session.Bindings.Clear();
 
         if (session.IsMain)
@@ -191,13 +252,13 @@ public partial class WeaponPaints
         panel.SetText(
             player,
             "submenu_title",
-            PanoramaPlainText(session.Menu.Title)
+            PanoramaPlainText(session.Menu.DisplayTitle)
         );
 
         panel.SetText(
             player,
             "submenu_page",
-            $"{session.Page + 1} / {pages}"
+            Localizer["wp_panorama_page", session.Page + 1, pages].Value
         );
 
         panel.SetText(player, "submenu_status", "");
@@ -243,14 +304,16 @@ public partial class WeaponPaints
             panel.SetText(
                 player,
                 $"submenu_number_{row}",
-                exists ? $"{index + 1:00}" : ""
+                exists
+                    ? Localizer["wp_panorama_number", index + 1].Value
+                    : ""
             );
 
             panel.SetText(
                 player,
                 $"submenu_text_{row}",
                 exists
-                    ? PanoramaPlainText(session.Menu.MenuOptions[index].Text)
+                    ? PanoramaPlainText(session.Menu.DisplayOption(session.Menu.MenuOptions[index]))
                     : ""
             );
 
@@ -352,6 +415,82 @@ public partial class WeaponPaints
         }
     }
 
+    private void DrawPanoramaLabels(
+    CCSPlayerController player,
+    UiPanel panel,
+    bool main)
+    {
+        if (main)
+        {
+            Set("poplight_brand", "wp_panorama_brand");
+            Set("poplight_title", "wp_ws_title");
+            Set("poplight_description", "wp_panorama_description");
+
+            Set("poplight_all_text", "wp_ws_all_weapons");
+            Set("poplight_all_description", "wp_panorama_all_description");
+
+            Set("poplight_loadout_section", "wp_panorama_loadout_section");
+
+            Set("poplight_knife_text", "wp_ws_knife");
+            Set("poplight_knife_description", "wp_panorama_knife_description");
+
+            Set("poplight_pistol_description", "wp_panorama_pistol_description");
+            Set("poplight_primary_description", "wp_panorama_primary_description");
+
+            Set("poplight_appearance_section", "wp_panorama_appearance_section");
+
+            Set("poplight_gloves_text", "wp_ws_gloves");
+            Set("poplight_gloves_description", "wp_panorama_gloves_description");
+
+            Set("poplight_agents_text", "wp_ws_agents");
+            Set("poplight_agents_description", "wp_panorama_agents_description");
+
+            Set("poplight_close_text", "wp_panorama_close");
+
+            for (int row = 0; row < 6; row++)
+            {
+                panel.SetText(
+                    player,
+                    $"poplight_menu_number_{row}",
+                    Localizer["wp_panorama_number", row + 1].Value
+                );
+
+                Set(
+                    $"poplight_menu_arrow_{row}",
+                    "wp_panorama_row_arrow"
+                );
+            }
+        }
+        else
+        {
+            Set("submenu_brand", "wp_panorama_brand");
+            Set("submenu_description", "wp_panorama_submenu_description");
+
+            Set("submenu_back_text", "wp_panorama_back");
+            Set("submenu_close_text", "wp_panorama_close");
+
+            Set("submenu_previous_text", "wp_panorama_previous");
+            Set("submenu_next_text", "wp_panorama_next");
+
+            for (int row = 0; row < 6; row++)
+            {
+                Set(
+                    $"poplight_submenu_arrow_{row}",
+                    "wp_panorama_row_arrow"
+                );
+            }
+        }
+
+        void Set(string id, string key)
+        {
+            panel.SetText(
+                player,
+                id,
+                PanoramaPlainText(Localizer[key].Value)
+            );
+        }
+    }
+
     private void HandlePanoramaClick(PanelClick click)
     {
         var player = click.Player;
@@ -363,7 +502,7 @@ public partial class WeaponPaints
         {
             return;
         }
-
+        using var menuCulture = new MenuCulture(player);
         // Closing must work even while cosmetics are loading.
         if (click.ButtonId is "poplight_close" or "submenu_close")
         {

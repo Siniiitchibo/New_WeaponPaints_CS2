@@ -1,119 +1,115 @@
 <root>
-    <styles>
-        <include src="s2r://panorama/styles/custom_game/poplight_menu.vcss_c" />
-        <include src="s2r://panorama/styles/custom_game/poplight_submenu.vcss_c" />
-    </styles>
+	<styles>
+		<include src="s2r://panorama/styles/custom_game/poplight_menu.vcss_c" />
+		<include src="s2r://panorama/styles/custom_game/poplight_submenu.vcss_c" />
+	</styles>
 
-    <Panel class="poplight-screen" hittest="false">
-        <Panel id="submenu_window"
+	<Panel class="poplight-screen" hittest="false">
+		<Panel id="submenu_window"
                class="poplight-window"
                hittest="true">
 
-            <Panel class="menu-header" hittest="false">
-                <Label class="brand" text="POPLIGHT" />
-                <Label id="submenu_title"
+			<Panel class="menu-header" hittest="false">
+				<Label id="submenu_brand"
+                       class="brand"
+                       text="{s:text}" />
+				<Label id="submenu_title"
                        class="menu-title"
                        text="{s:text}" />
-                <Label class="menu-description"
-                       text="Vyber si z dostupných možností." />
-            </Panel>
+				<Label id="submenu_description"
+                       class="menu-description"
+                       text="{s:text}" />
+			</Panel>
 
-            <Panel class="menu-content" hittest="false">
+			<Panel class="menu-content" hittest="false">
 
-                <Button id="submenu_row_0" class="menu-row">
-                    <Label id="submenu_number_0"
-                           class="row-number"
+				<Button id="submenu_row_0" class="menu-row">
+					<Label id="submenu_number_0" class="row-number"
                            text="{s:text}" hittest="false" />
-                    <Label id="submenu_text_0"
-                           class="row-title submenu-row-title"
+					<Label id="submenu_text_0" class="row-title submenu-row-title"
                            text="{s:text}" hittest="false" />
-                    <Label class="row-arrow" text="›" hittest="false" />
-                </Button>
-
-                <Button id="submenu_row_1" class="menu-row">
-                    <Label id="submenu_number_1"
-                           class="row-number"
+					<Label id="poplight_submenu_arrow_0" class="row-arrow"
                            text="{s:text}" hittest="false" />
-                    <Label id="submenu_text_1"
-                           class="row-title submenu-row-title"
+				</Button>
+
+				<Button id="submenu_row_1" class="menu-row">
+					<Label id="submenu_number_1" class="row-number"
                            text="{s:text}" hittest="false" />
-                    <Label class="row-arrow" text="›" hittest="false" />
-                </Button>
-
-                <Button id="submenu_row_2" class="menu-row">
-                    <Label id="submenu_number_2"
-                           class="row-number"
+					<Label id="submenu_text_1" class="row-title submenu-row-title"
                            text="{s:text}" hittest="false" />
-                    <Label id="submenu_text_2"
-                           class="row-title submenu-row-title"
+					<Label id="poplight_submenu_arrow_1" class="row-arrow"
                            text="{s:text}" hittest="false" />
-                    <Label class="row-arrow" text="›" hittest="false" />
-                </Button>
+				</Button>
 
-                <Button id="submenu_row_3" class="menu-row">
-                    <Label id="submenu_number_3"
-                           class="row-number"
+				<Button id="submenu_row_2" class="menu-row">
+					<Label id="submenu_number_2" class="row-number"
                            text="{s:text}" hittest="false" />
-                    <Label id="submenu_text_3"
-                           class="row-title submenu-row-title"
+					<Label id="submenu_text_2" class="row-title submenu-row-title"
                            text="{s:text}" hittest="false" />
-                    <Label class="row-arrow" text="›" hittest="false" />
-                </Button>
-
-                <Button id="submenu_row_4" class="menu-row">
-                    <Label id="submenu_number_4"
-                           class="row-number"
+					<Label id="poplight_submenu_arrow_2" class="row-arrow"
                            text="{s:text}" hittest="false" />
-                    <Label id="submenu_text_4"
-                           class="row-title submenu-row-title"
+				</Button>
+
+				<Button id="submenu_row_3" class="menu-row">
+					<Label id="submenu_number_3" class="row-number"
                            text="{s:text}" hittest="false" />
-                    <Label class="row-arrow" text="›" hittest="false" />
-                </Button>
-
-                <Button id="submenu_row_5" class="menu-row">
-                    <Label id="submenu_number_5"
-                           class="row-number"
+					<Label id="submenu_text_3" class="row-title submenu-row-title"
                            text="{s:text}" hittest="false" />
-                    <Label id="submenu_text_5"
-                           class="row-title submenu-row-title"
+					<Label id="poplight_submenu_arrow_3" class="row-arrow"
                            text="{s:text}" hittest="false" />
-                    <Label class="row-arrow" text="›" hittest="false" />
-                </Button>
+				</Button>
 
-            </Panel>
+				<Button id="submenu_row_4" class="menu-row">
+					<Label id="submenu_number_4" class="row-number"
+                           text="{s:text}" hittest="false" />
+					<Label id="submenu_text_4" class="row-title submenu-row-title"
+                           text="{s:text}" hittest="false" />
+					<Label id="poplight_submenu_arrow_4" class="row-arrow"
+                           text="{s:text}" hittest="false" />
+				</Button>
 
-            <Panel class="menu-footer" hittest="false">
+				<Button id="submenu_row_5" class="menu-row">
+					<Label id="submenu_number_5" class="row-number"
+                           text="{s:text}" hittest="false" />
+					<Label id="submenu_text_5" class="row-title submenu-row-title"
+                           text="{s:text}" hittest="false" />
+					<Label id="poplight_submenu_arrow_5" class="row-arrow"
+                           text="{s:text}" hittest="false" />
+				</Button>
 
-                <Panel class="submenu-navigation" hittest="false">
-                    <Button id="submenu_previous" class="submenu-nav-button">
-                        <Label text="‹" hittest="false" />
-                    </Button>
+			</Panel>
 
-                    <Label id="submenu_page"
-                           class="submenu-page"
-                           text="{s:text}"
-                           hittest="false" />
+			<Panel class="menu-footer" hittest="false">
 
-                    <Button id="submenu_next" class="submenu-nav-button">
-                        <Label text="›" hittest="false" />
-                    </Button>
-                </Panel>
+				<Panel class="submenu-navigation" hittest="false">
+					<Button id="submenu_previous" class="submenu-nav-button">
+						<Label id="submenu_previous_text"
+                               text="{s:text}" hittest="false" />
+					</Button>
 
-                <Label id="submenu_status"
-                       class="menu-status"
-                       text="{s:text}"
-                       hittest="false" />
+					<Label id="submenu_page" class="submenu-page"
+                           text="{s:text}" hittest="false" />
 
-                <Button id="submenu_back"
-                        class="close-button submenu-back">
-                    <Label text="Späť" hittest="false" />
-                </Button>
+					<Button id="submenu_next" class="submenu-nav-button">
+						<Label id="submenu_next_text"
+                               text="{s:text}" hittest="false" />
+					</Button>
+				</Panel>
 
-                <Button id="submenu_close" class="close-button">
-                    <Label text="Zatvoriť menu" hittest="false" />
-                </Button>
+				<Label id="submenu_status" class="menu-status"
+                       text="{s:text}" hittest="false" />
 
-            </Panel>
-        </Panel>
-    </Panel>
+				<Button id="submenu_back" class="close-button submenu-back">
+					<Label id="submenu_back_text"
+                           text="{s:text}" hittest="false" />
+				</Button>
+
+				<Button id="submenu_close" class="close-button">
+					<Label id="submenu_close_text"
+                           text="{s:text}" hittest="false" />
+				</Button>
+
+			</Panel>
+		</Panel>
+	</Panel>
 </root>
