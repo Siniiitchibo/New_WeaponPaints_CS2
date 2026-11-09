@@ -1,0 +1,46 @@
+{
+  "wp_prefix": "{lightblue}[Poplight Paints] {default}",
+
+  "wp_command_cooldown": "{lightred}Teraz nemôžeš obnoviť skiny zbraní.",
+  "wp_command_refresh_done": "{lime}Obnovujem tvoje nastavené úpravy.",
+  "wp_stattrak_action": "{lime}Nastavenie StatTraku bolo zmenené.",
+
+  "wp_knife_menu_title": "<font color='#B6E537' class='fontSize-m'><b>Menu nožov</b></font>",
+  "wp_knife_menu_select": "Vybraný nôž: {lime}{0}{default}",
+  "wp_knife_menu_kill": "",
+
+  "wp_glove_menu_title": "<font color='#B6E537' class='fontSize-m'><b>Typy rukavíc</b></font>",
+  "wp_glove_menu_select": "Vybrané rukavice: {lime}{0}{default}",
+
+  "wp_agent_menu_title": "<font color='#B6E537' class='fontSize-m'><b>Menu agentov</b></font>",
+  "wp_agent_menu_select": "Vybraný agent: {lime}{0}{default}",
+
+  "wp_skin_menu_weapon_title": "<font color='#B6E537' class='fontSize-m'><b>Všetky zbrane</b></font>",
+  "wp_skin_menu_skin_title": "<font color='#B6E537' class='fontSize-m'><b>Vyber skin: {0}</b></font>",
+  "wp_skin_menu_select": "Vybraný skin: {lime}{0}{default}",
+
+  "wp_ws_title": "<font color='#B6E537' class='fontSize-m'><b>Menu skinov zbraní</b></font>",
+  "wp_ws_all_weapons": "Nastaviť všetky zbrane",
+  "wp_ws_default_knife": "Predvolený nôž",
+  "wp_ws_default_gloves": "Predvolené rukavice",
+  "wp_ws_gloves": "Rukavice",
+  "wp_ws_agents": "Agenti",
+  "wp_ws_knife": "Nôž",
+
+  "wp_ws_stattrak_enable": "Zapnúť StatTrak",
+  "wp_ws_stattrak_disable": "Vypnúť StatTrak",
+  "wp_ws_stattrak_on": "zapnutý",
+  "wp_ws_stattrak_off": "vypnutý",
+  "wp_ws_stattrak_set": "StatTrak pre {lime}{0}{default}: {lime}{1}{default}",
+
+  "wp_ws_knife_team_title": "<font color='#B6E537' class='fontSize-m'><b>Nôž – výber strany</b></font>",
+  "wp_ws_glove_team_title": "<font color='#B6E537' class='fontSize-m'><b>Rukavice – výber strany</b></font>",
+  "wp_ws_apply_both": "Vymeniť za CT aj T",
+  "wp_ws_apply_current": "Iba za {0}",
+  "wp_ws_join_team_first": "Iba za aktuálnu stranu – najprv sa pripoj do T/CT",
+
+  "wp_ws_glove_skin_title": "<font color='#B6E537' class='fontSize-m'><b>Vyber skin: {0}</b></font>",
+  "wp_ws_command_description": "Otvoriť menu vzhľadu zbraní a postavy",
+
+  "None": "Žiadne"
+}

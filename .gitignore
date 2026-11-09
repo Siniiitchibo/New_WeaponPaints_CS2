@@ -1,0 +1,43 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+
+# Local IDE settings
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.DotSettings.user
+WeaponPaints.slnx
+WeaponPaints.csproj.user
+
+# Local publish profiles
+**/Properties/PublishProfiles/
+
+# Generated packages
+artifacts/
+dist/
+packages/
+downloads/
+*.zip
+
+# Compiled Panorama resources
+*.vxml_c
+*.vcss_c
+*.vjs_c
+*.vtex_c
+*.vpk
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+
+# Local environment
+.env
+.env.local
+
+# Windows files
+Thumbs.db
+Desktop.ini

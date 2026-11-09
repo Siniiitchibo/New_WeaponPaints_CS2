@@ -1,0 +1,262 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weaponpaints-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build WeaponPaints
+    runs-on: ubuntu-latest
+
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Validate version and source files
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          required = [
+              "WeaponPaints.csproj",
+              "WeaponPaints.cs",
+              "VERSION",
+              "LICENSE",
+              "README.md",
+              "3rd_party/CS2UIKit.dll",
+              "3rd_party/CS2UIKit.LICENSE",
+              "gamedata/weaponpaints.json",
+              "hud/BuildPoplightMenu.ps1",
+              "hud/layout/poplight_menu.xml",
+              "hud/layout/poplight_submenu.xml",
+              "hud/styles/poplight_menu.css",
+              "hud/styles/poplight_submenu.css",
+          ]
+
+          for name in required:
+              if not Path(name).is_file():
+                  raise SystemExit(f"Missing required file: {name}")
+
+          version = Path("VERSION").read_text(
+              encoding="utf-8-sig"
+          ).strip()
+
+          if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
+              raise SystemExit(
+                  "VERSION must contain a version such as 0.2.0."
+              )
+
+          source = Path("WeaponPaints.cs").read_text(
+              encoding="utf-8-sig"
+          )
+
+          match = re.search(
+              r'ModuleVersion\s*=>\s*"([^"]+)"',
+              source
+          )
+
+          if not match or match.group(1) != version:
+              raise SystemExit(
+                  "ModuleVersion in WeaponPaints.cs must match VERSION."
+              )
+
+          for name in ("poplight_menu", "poplight_submenu"):
+              ET.parse(f"hud/layout/{name}.xml")
+
+          for directory in ("lang", "data", "gamedata"):
+              files = list(Path(directory).glob("*.json"))
+
+              if not files:
+                  raise SystemExit(
+                      f"No JSON files found in {directory}."
+                  )
+
+              for path in files:
+                  json.loads(
+                      path.read_text(encoding="utf-8-sig")
+                  )
+
+          with open(
+              os.environ["GITHUB_OUTPUT"],
+              "a",
+              encoding="utf-8"
+          ) as output:
+              output.write(f"version={version}\n")
+
+          print(f"Validated source files and version {version}.")
+          PY
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish WeaponPaints
+        env:
+          VERSION: ${{ steps.metadata.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          dotnet publish WeaponPaints.csproj \
+            -c Release \
+            -p:Version="$VERSION" \
+            -o "$RUNNER_TEMP/weaponpaints-publish"
+
+      - name: Prepare server package
+        env:
+          VERSION: ${{ steps.metadata.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PACKAGE="$RUNNER_TEMP/weaponpaints-package"
+          PLUGIN="$PACKAGE/addons/counterstrikesharp/plugins/WeaponPaints"
+          GAMEDATA="$PACKAGE/addons/counterstrikesharp/gamedata"
+
+          mkdir -p "$PLUGIN" "$GAMEDATA" packages
+
+          cp -a "$RUNNER_TEMP/weaponpaints-publish/." "$PLUGIN/"
+
+          # Supplied by the CounterStrikeSharp installation.
+          rm -f \
+            "$PLUGIN/CounterStrikeSharp.API.dll" \
+            "$PLUGIN/CounterStrikeSharp.API.pdb" \
+            "$PLUGIN/CounterStrikeSharp.API.xml" \
+            "$PLUGIN/CounterStrikeSharp.API.runtimeconfig.json" \
+            "$PLUGIN/McMaster.NETCore.Plugins.dll" \
+            "$PLUGIN/Microsoft.DotNet.PlatformAbstractions.dll" \
+            "$PLUGIN/Microsoft.Extensions.DependencyModel.dll"
+
+          cp VERSION LICENSE "$PLUGIN/"
+          cp 3rd_party/CS2UIKit.LICENSE "$PLUGIN/"
+          cp gamedata/weaponpaints.json "$GAMEDATA/"
+
+          test -s "$PLUGIN/WeaponPaints.dll"
+          test -s "$PLUGIN/CS2UIKit.dll"
+          test -s "$PLUGIN/data/skins_en.json"
+          test -s "$PLUGIN/lang/en.json"
+          test -s "$GAMEDATA/weaponpaints.json"
+
+          (
+            cd "$PACKAGE"
+
+            zip -qr \
+              "$GITHUB_WORKSPACE/packages/WeaponPaints-$VERSION.zip" \
+              addons
+          )
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: weaponpaints-package
+          path: packages/*.zip
+          if-no-files-found: error
+          overwrite: true
+
+  release:
+    name: Publish new version
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: weaponpaints-package
+          path: packages
+
+      - name: Create release if the version is new
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="v$VERSION"
+
+          STATUS="$(curl \
+            --silent --show-error \
+            --connect-timeout 15 --max-time 60 --retry 2 \
+            --output "$RUNNER_TEMP/release-response.json" \
+            --write-out '%{http_code}' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases/tags/$TAG")"
+
+          case "$STATUS" in
+            200)
+              echo "Release $TAG already exists. Leaving it unchanged."
+              exit 0
+              ;;
+            404)
+              ;;
+            *)
+              echo "::error::Release lookup failed: HTTP $STATUS."
+              exit 1
+              ;;
+          esac
+
+          cat > "$RUNNER_TEMP/release-notes.md" <<EOF_NOTES
+          PopLight WeaponPaints $VERSION
+
+          Installation:
+          Download WeaponPaints-$VERSION.zip and extract it into game/csgo, merging the addons folder.
+
+          Includes:
+          - WeaponPaints plugin and its runtime dependencies
+          - CS2UIKit
+          - Item data and translations
+          - Required gamedata
+          - Licenses and version information
+
+          Requirements:
+          Metamod, CounterStrikeSharp with runtime, MultiAddonManager and MySQL/MariaDB must be installed separately.
+
+          Workshop menu:
+          https://steamcommunity.com/sharedfiles/filedetails/?id=3836442690
+
+          Add to your MultiAddonManager configuration:
+          mm_client_extra_addons "3836442690"
+
+          To modify the plugin or menu, download or clone the complete repository.
+
+          See README.md for configuration, compilation and publishing your own Workshop menu.
+          EOF_NOTES
+
+          gh release create "$TAG" \
+            "packages/WeaponPaints-$VERSION.zip" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "PopLight WeaponPaints $VERSION" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --latest

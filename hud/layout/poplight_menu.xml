@@ -1,0 +1,116 @@
+<root>
+	<styles>
+		<include src="s2r://panorama/styles/custom_game/poplight_menu.vcss_c" />
+	</styles>
+
+	<Panel class="poplight-screen" hittest="false">
+
+		<Panel id="poplight_window"
+               class="poplight-window"
+               hittest="true">
+
+			<Panel class="menu-header" hittest="false">
+				<Label class="brand" text="POPLIGHT" />
+				<Label class="menu-title" text="Menu skinov" />
+				<Label class="menu-description"
+                       text="Prispôsob si svoju výbavu." />
+			</Panel>
+
+			<Panel class="menu-content" hittest="false">
+
+				<Button id="poplight_all" class="menu-row">
+					<Label class="row-number" text="01" hittest="false" />
+					<Panel class="row-copy" hittest="false">
+						<Label class="row-title"
+                               text="Všetky zbrane"
+                               hittest="false" />
+						<Label class="row-description"
+                               text="Kompletný zoznam zbraní"
+                               hittest="false" />
+					</Panel>
+					<Label class="row-arrow" text="›" hittest="false" />
+				</Button>
+
+				<Label class="section-label"
+                       text="TVOJA VÝBAVA"
+                       hittest="false" />
+
+				<Button id="poplight_knife" class="menu-row">
+					<Label class="row-number" text="02" hittest="false" />
+					<Panel class="row-copy" hittest="false">
+						<Label class="row-title" text="Nôž" hittest="false" />
+						<Label class="row-description"
+                               text="Model noža a jeho skin"
+                               hittest="false" />
+					</Panel>
+					<Label class="row-arrow" text="›" hittest="false" />
+				</Button>
+
+				<Button id="poplight_pistol" class="menu-row">
+					<Label class="row-number" text="03" hittest="false" />
+					<Panel class="row-copy" hittest="false">
+						<Label id="poplight_pistol_name" class="row-title" text="{s:text}" hittest="false" />
+						<Label class="row-description"
+                               text="Aktuálna pištoľ"
+                               hittest="false" />
+					</Panel>
+					<Label class="row-arrow" text="›" hittest="false" />
+				</Button>
+
+				<Button id="poplight_primary" class="menu-row">
+					<Label class="row-number" text="04" hittest="false" />
+					<Panel class="row-copy" hittest="false">
+						<Label id="poplight_primary_name" class="row-title" text="{s:text}" hittest="false" />
+						<Label class="row-description"
+                               text="Aktuálna hlavná zbraň"
+                               hittest="false" />
+					</Panel>
+					<Label class="row-arrow" text="›" hittest="false" />
+				</Button>
+
+				<Label class="section-label"
+                       text="VZHĽAD HRÁČA"
+                       hittest="false" />
+
+				<Button id="poplight_gloves" class="menu-row">
+					<Label class="row-number" text="05" hittest="false" />
+					<Panel class="row-copy" hittest="false">
+						<Label class="row-title"
+                               text="Rukavice"
+                               hittest="false" />
+						<Label class="row-description"
+                               text="Typ rukavíc a ich skin"
+                               hittest="false" />
+					</Panel>
+					<Label class="row-arrow" text="›" hittest="false" />
+				</Button>
+
+				<Button id="poplight_agents" class="menu-row">
+					<Label class="row-number" text="06" hittest="false" />
+					<Panel class="row-copy" hittest="false">
+						<Label class="row-title"
+                               text="Agenti"
+                               hittest="false" />
+						<Label class="row-description"
+                               text="Postavy pre CT a T"
+                               hittest="false" />
+					</Panel>
+					<Label class="row-arrow" text="›" hittest="false" />
+				</Button>
+
+			</Panel>
+
+			<Panel class="menu-footer" hittest="false">
+				<Label id="poplight_status"
+                       class="menu-status"
+                       text="{s:text}"
+                       hittest="false" />
+
+				<Button id="poplight_close" class="close-button">
+					<Label text="Zatvoriť menu" hittest="false" />
+				</Button>
+			</Panel>
+
+		</Panel>
+	</Panel>
+</root>
