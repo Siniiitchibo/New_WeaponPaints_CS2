@@ -4,6 +4,8 @@ A customized version of CS2 WeaponPaints with a clickable Panorama menu inspired
 
 Open the menu using `.ws` or `!ws`.
 
+![PopLight Skin Menu](hud/menu.jpg)
+
 ## Features
 
 - One menu for weapons, knives, gloves and agents.
