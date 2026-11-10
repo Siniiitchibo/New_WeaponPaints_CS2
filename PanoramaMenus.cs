@@ -17,10 +17,12 @@ public partial class WeaponPaints
     private UiPanel? _panoramaSub;
 
     private readonly Dictionary<int, PanoramaSession> _panoramaSessions = [];
+    private readonly Dictionary<int, DateTime> _menuActionCooldowns = [];
 
     private sealed class PanoramaSession
     {
         public required ulong SteamId { get; init; }
+        public required int? UserId { get; init; }
 
         public required PanoramaMenu Menu { get; init; }
 
@@ -29,6 +31,8 @@ public partial class WeaponPaints
         public int Page { get; set; }
 
         public Dictionary<string, ChatMenuOption> Bindings { get; } = [];
+
+        public DateTime NextWearChangeUtc { get; set; }
     }
 
     private sealed class PanoramaMenu(
@@ -42,6 +46,12 @@ public partial class WeaponPaints
         public string? TitleKey { get; } = titleKey;
 
         public Dictionary<ChatMenuOption, string> TextKeys { get; } = [];
+
+
+        public Dictionary<ChatMenuOption, Func<CCSPlayerController, string?>>
+            SelectionMarkers { get; } = [];
+
+        public WearMenuContext? Wear { get; set; }
 
         public string DisplayTitle =>
             TitleKey is null
@@ -98,6 +108,15 @@ public partial class WeaponPaints
             panorama.TextKeys[option] = key;
     }
 
+    private static void SetMenuOptionSelection(
+    IMenu menu,
+    ChatMenuOption option,
+    Func<CCSPlayerController, string?> getMarker)
+    {
+        if (menu is PanoramaMenu panorama)
+            panorama.SelectionMarkers[option] = getMarker;
+    }
+
     private void InitializePanoramaMenus(bool hotReload)
     {
         UIKit.Init(this, hotReload);
@@ -112,7 +131,7 @@ public partial class WeaponPaints
         );
 
         _panoramaSub = new UiPanel(
-            "panorama/layout/custom_game/poplight_submenu.xml",
+            "panorama/layout/custom_game/poplight_submenu_wear.xml",
             new PanelOptions
             {
                 Root = "submenu_window",
@@ -141,8 +160,22 @@ public partial class WeaponPaints
             return HookResult.Continue;
         }, HookMode.Pre);
 
+        RegisterEventHandler<EventPlayerTeam>((@event, _) =>
+        {
+            if (@event.Userid is { IsValid: true } player)
+                CloseWsMenus(player);
+            return HookResult.Continue;
+        });
+
         RegisterListener<Listeners.OnMapEnd>(() =>
         {
+            SaveConnectedPlayerCosmetics();
+            _mapGeneration++;
+            _playerWeaponImage.Clear();
+            _playerPreviewTokens.Clear();
+            _originalAgentModels.Clear();
+            _weaponRefreshes.Clear();
+            _menuActionCooldowns.Clear();
             _panoramaSessions.Clear();
         });
     }
@@ -204,6 +237,7 @@ public partial class WeaponPaints
         var session = new PanoramaSession
         {
             SteamId = player.SteamID,
+            UserId = player.UserId,
             Menu = menu,
             IsMain = isMain,
             Page = 0
@@ -317,10 +351,44 @@ public partial class WeaponPaints
                     : ""
             );
 
+            string? selectionMarker = null;
+
             if (exists)
-                session.Bindings[buttonId] =
-                    session.Menu.MenuOptions[index];
+            {
+                var option = session.Menu.MenuOptions[index];
+
+                session.Bindings[buttonId] = option;
+
+                if (session.Menu.SelectionMarkers.TryGetValue(
+                        option, out var getMarker))
+                {
+                    selectionMarker = getMarker(player);
+                }
+            }
+
+            bool selected = !string.IsNullOrEmpty(selectionMarker);
+
+            panel.SetClass(
+                player,
+                buttonId,
+                "submenu-selected",
+                selected
+            );
+
+            panel.SetText(
+                player,
+                $"poplight_submenu_arrow_{row}",
+                exists
+                    ? selected
+                        ? selectionMarker!
+                        : PanoramaPlainText(
+                            Localizer["wp_panorama_row_arrow"].Value)
+                    : ""
+            );
         }
+
+        DrawPanoramaStatTrak(player, session);
+        DrawPanoramaWear(player, session);
     }
 
     private void DrawPanoramaMain(
@@ -498,7 +566,7 @@ public partial class WeaponPaints
         if (!player.IsValid ||
             player.IsBot ||
             !_panoramaSessions.TryGetValue(player.Slot, out var session) ||
-            session.SteamId != player.SteamID)
+            (session.SteamId != player.SteamID || session.UserId != player.UserId))
         {
             return;
         }
@@ -512,6 +580,18 @@ public partial class WeaponPaints
 
         if (!CanUseWsMenu(player))
             return;
+
+        if (click.ButtonId == "submenu_stattrak")
+        {
+            HandlePanoramaStatTrakClick(player, session);
+            return;
+        }
+
+        if (click.ButtonId.StartsWith("submenu_wear_step_", StringComparison.Ordinal))
+        {
+            HandlePanoramaWearClick(player, session, click.ButtonId);
+            return;
+        }
 
         switch (click.ButtonId)
         {
@@ -546,6 +626,11 @@ public partial class WeaponPaints
         {
             return;
         }
+
+        // Keep rapid repeated skin choices from flooding DB work and refreshes.
+        if (_menuActionCooldowns.TryGetValue(player.Slot, out var until) && DateTime.UtcNow < until)
+            return;
+        _menuActionCooldowns[player.Slot] = DateTime.UtcNow.AddMilliseconds(200);
 
         var action = session.Menu.PostSelectAction;
 

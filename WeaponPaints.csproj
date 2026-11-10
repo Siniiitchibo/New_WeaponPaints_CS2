@@ -40,4 +40,8 @@
 			  CopyToOutputDirectory="PreserveNewest"
 			  CopyToPublishDirectory="PreserveNewest" />
 	</ItemGroup>
+  <ItemGroup>
+    <Compile Remove="tests/**" />
+    <None Remove="tests/**" />
+  </ItemGroup>
 </Project>

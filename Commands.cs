@@ -26,6 +26,7 @@ public partial class WeaponPaints
             return;
         }
 
+        using var menuCulture = new MenuCulture(player);
         if (CommandsCooldown.TryGetValue(
                 player.Slot, out var cooldownEndTime) &&
             DateTime.UtcNow < cooldownEndTime)
@@ -144,6 +145,7 @@ public partial class WeaponPaints
 		{
 			try
 			{
+                using var menuCulture = new MenuCulture(targetPlayer);
                 LoadPlayerCosmetics(targetPlayer);
 
                 if (!string.IsNullOrEmpty(Localizer["wp_command_refresh_done"]))
@@ -165,8 +167,8 @@ public partial class WeaponPaints
 
 	private void OnCommandStattrak(CCSPlayerController? player, CommandInfo commandInfo)
 	{
-		if (player == null || !player.IsValid) return;
-		
+		if (!Config.Additional.SkinEnabled || player == null || !player.IsValid) return;
+        using var menuCulture = new MenuCulture(player);
 		var weapon = player.PlayerPawn.Value?.WeaponServices?.ActiveWeapon.Value;
 		
 		if (weapon == null || !weapon.IsValid)
@@ -175,8 +177,11 @@ public partial class WeaponPaints
 		if (!HasChangedPaint(player, weapon.AttributeManager.Item.ItemDefinitionIndex, out var weaponInfo) || weaponInfo == null)
 			return;
 		
-		weaponInfo.StatTrak = !weaponInfo.StatTrak;
-		RefreshWeapons(player);
+        if (!CanUseWsMenu(player) ||
+            !WeaponDefindex.TryGetValue(weapon.AttributeManager.Item.ItemDefinitionIndex, out var classname))
+            return;
+        weaponInfo.StatTrak = !weaponInfo.StatTrak;
+        SaveWsWeaponSettings(player, classname);
 
 		if (!string.IsNullOrEmpty(Localizer["wp_stattrak_action"]))
 		{
@@ -240,8 +245,10 @@ public partial class WeaponPaints
 			if (_gBCommandsAllowed && (LifeState_t)player.LifeState == LifeState_t.LIFE_ALIVE)
                 RefreshWeapons(player, knifeKey);
 
-            if (WeaponSync != null)
-                _ = QueuePlayerCosmeticWork(playerInfo.Slot, async () => await WeaponSync.SyncKnifeToDatabase(playerInfo, knifeKey, teamsToCheck));
+            var sync = WeaponSync;
+            if (sync is not null)
+                _ = QueuePlayerCosmeticWork(playerInfo.Slot,
+                    () => sync.SyncKnifeToDatabase(playerInfo, knifeKey, teamsToCheck));
             NavigateWs(player, target =>
             {
                 if (knifeKey == "weapon_knife" || !Config.Additional.SkinEnabled)
@@ -265,6 +272,8 @@ public partial class WeaponPaints
             var knifeOption = giveItemMenu.AddMenuOption(
                 displayName,
                 (player, _) => HandleGive(player, originalKnifeName));
+
+            SetMenuOptionSelection(giveItemMenu, knifeOption, target => GetKnifeSelectionMarker(target, knifePair.Key, GetWsCosmeticTeams(target, true)));
 
             if (knifePair.Key is "weapon_knife" or "weapon_knife_t")
             {
@@ -346,50 +355,8 @@ public partial class WeaponPaints
 
                 skinSubMenu.PostSelectAction = PostSelectAction.Nothing;
 
-                // StatTrak is always the first item.
-                bool statTrakEnabled = AreAllTeamsStatTrakEnabled(player);
+                SetWearMenuContext(skinSubMenu, weaponDefIndex, false, targetTeams);
 
-                skinSubMenu.AddMenuOption(
-                Localizer[
-                    statTrakEnabled
-                        ? "wp_ws_stattrak_disable"
-                        : "wp_ws_stattrak_enable"],
-                (p, _) =>
-                {
-                    if (!CanUseWsMenu(p))
-                        return;
-
-                    // If the selected sides have different settings,
-                    // enabling makes both sides enabled.
-                    bool enable = !AreAllTeamsStatTrakEnabled(p);
-
-                    foreach (var team in targetTeams)
-                    {
-                        var weaponInfo = GetWeaponInfo(p, team);
-
-                        weaponInfo.StatTrak = enable;
-
-                        // Keep the existing kill counter.
-                    }
-
-                    SaveWsWeaponSettings(p, selectedWeaponClassname);
-
-                    p.Print(Localizer[
-                        "wp_ws_stattrak_set",
-                        selectedWeapon,
-                        Localizer[
-                            enable
-                                ? "wp_ws_stattrak_on"
-                                : "wp_ws_stattrak_off"].Value]);
-
-                    // Reopen to update the toggle label.
-                    NavigateWs(p, target =>
-                        _wsOpenWeaponSkins?.Invoke(
-                            target,
-                            selectedWeapon));
-                });
-
-                // Skin choices follow the StatTrak toggle.
                 var skinsForSelectedWeapon = SkinsList
                 .Where(skin =>
                     skin["weapon_name"]?.ToString() ==
@@ -411,8 +378,8 @@ public partial class WeaponPaints
                 string skinLabel = Localizer["wp_skin_menu_entry", paintName, paintId].Value;
                 int selectedPaintId = paintId;
 
-                    skinSubMenu.AddMenuOption(skinLabel, (p, _) =>
-                    {
+                var skinOption = skinSubMenu.AddMenuOption(skinLabel, (p, _) =>
+                {
                         if (!CanUseWsMenu(p))
                             return;
 
@@ -421,7 +388,6 @@ public partial class WeaponPaints
                             var weaponInfo = GetWeaponInfo(p, team);
 
                             weaponInfo.Paint = selectedPaintId;
-                            weaponInfo.Wear = 0.01f;
                             weaponInfo.Seed = 0;
 
                             // Preserve StatTrak and its kill counter.
@@ -432,26 +398,10 @@ public partial class WeaponPaints
 
                         SaveWsWeaponSettings(p, selectedWeaponClassname);
                     });
-                }
+                        SetMenuOptionSelection(skinSubMenu, skinOption, target => GetSkinSelectionMarker(target, weaponDefIndex, selectedPaintId, false, targetTeams));
+            }
 
                 skinSubMenu.Open(player);
-
-                bool AreAllTeamsStatTrakEnabled(CCSPlayerController target)
-                {
-                    if (!GPlayerWeaponsInfo.TryGetValue(
-                        target.Slot,
-                        out var playerWeapons))
-                    {
-                        return false;
-                    }
-
-                    return targetTeams.All(team =>
-                    playerWeapons.TryGetValue(team, out var teamWeapons) &&
-                    teamWeapons.TryGetValue(
-                        weaponDefIndex,
-                        out var weaponInfo) &&
-                    weaponInfo.StatTrak);
-                }
 
                 WeaponInfo GetWeaponInfo(
                 CCSPlayerController target,
@@ -521,22 +471,10 @@ public partial class WeaponPaints
             IpAddress = player.IpAddress?.Split(":")[0]
         };
 
-        _ = QueuePlayerCosmeticWork(playerInfo.Slot, async () =>
-        {
-            try
-            {
-                // Create/update skin records first.
-                await sync.SyncWeaponPaintsToDatabase(playerInfo);
-
-                // Then persist StatTrak state and counters.
-                await sync.SyncStatTrakToDatabase(playerInfo);
-            }
-            catch (Exception ex)
-            {
-                Utility.Log(
-                    $"Error saving weapon settings: {ex.Message}");
-            }
-        });
+        int? defindex = WeaponDefindex.FirstOrDefault(pair => pair.Value == weaponClassname).Key;
+        var snapshot = CosmeticSnapshot.Capture(playerInfo.Slot, defindex);
+        _ = QueuePlayerCosmeticWork(playerInfo.Slot,
+            () => sync.SyncWeaponPaintsToDatabase(playerInfo, snapshot));
     }
 
     private void SetupGlovesMenu()
@@ -584,6 +522,9 @@ public partial class WeaponPaints
 
                 foreach (var team in teamsToCheck)
                 {
+                    // Carry the active gloves' wear over to another glove model.
+                    float savedWear = GetActiveGloveWear(player, team);
+
                     // Change only the selected side or sides.
                     playerGloves[team] = paint == 0
                     ? (ushort)0
@@ -601,7 +542,7 @@ public partial class WeaponPaints
                     _ => new WeaponInfo());
 
                     weaponInfo.Paint = paint;
-                    weaponInfo.Wear = 0.00f;
+                    weaponInfo.Wear = savedWear;
                     weaponInfo.Seed = 0;
                 }
 
@@ -630,6 +571,7 @@ public partial class WeaponPaints
 
                 if (sync != null)
                 {
+                    var snapshot = CosmeticSnapshot.Capture(playerInfo.Slot, weaponDefindex);
                     ushort savedGloveDefindex = paint == 0
                     ? (ushort)0
                     : weaponDefindex;
@@ -643,19 +585,20 @@ public partial class WeaponPaints
 
                         if (paint != 0)
                         {
-                            await sync.SyncWeaponPaintsToDatabase(playerInfo);
+                            await sync.SyncWeaponPaintsToDatabase(playerInfo, snapshot);
                         }
                     });
                 }
 
+                var gloveGuard = CapturePlayerAction(player);
                 AddTimer(
                 0.1f,
-                () => GivePlayerGloves(player),
+                () => { if (IsCurrentPlayerAction(player, gloveGuard)) GivePlayerGloves(player); },
                 TimerFlags.STOP_ON_MAPCHANGE);
 
                 AddTimer(
                 0.25f,
-                () => GivePlayerGloves(player),
+                () => { if (IsCurrentPlayerAction(player, gloveGuard)) GivePlayerGloves(player); },
                 TimerFlags.STOP_ON_MAPCHANGE);
         }
 
@@ -701,14 +644,16 @@ public partial class WeaponPaints
                         NavigateWs(player, target =>
                         {
                             int slot = target.Slot;
-                            ulong steamId = target.SteamID;
-
+                            object previewToken = new();
+                            _playerPreviewTokens[slot] = previewToken;
                             _playerWeaponImage[slot] = image;
 
                             AddTimer(2.0f, () =>
                             {
-                                if (!target.IsValid ||
-                                    target.SteamID != steamId)
+                                // Managed cleanup must also happen after death;
+                                // the unique token already protects newer previews/connections.
+                                if (!_playerPreviewTokens.TryGetValue(slot, out var currentToken) ||
+                                    !ReferenceEquals(currentToken, previewToken))
                                 {
                                     return;
                                 }
@@ -721,6 +666,7 @@ public partial class WeaponPaints
                                 }
 
                                 _playerWeaponImage.Remove(slot);
+                                _playerPreviewTokens.Remove(slot);
 
                             }, TimerFlags.STOP_ON_MAPCHANGE);
                         });
@@ -746,13 +692,11 @@ public partial class WeaponPaints
 					);
 				}
 
-				if (WeaponSync != null)
-				{
-                    _ = QueuePlayerCosmeticWork(playerInfo.Slot, async () =>
-					{
-						await WeaponSync.SyncAgentToDatabase(playerInfo);
-					});
-				}
+                var sync = WeaponSync;
+                if (sync is not null && GPlayersAgent.TryGetValue(playerInfo.Slot, out var agents))
+                    _ = QueuePlayerCosmeticWork(playerInfo.Slot,
+                        () => sync.SyncAgentToDatabase(playerInfo, agents));
+                GivePlayerAgent(player);
 			};
         }
 
@@ -778,10 +722,26 @@ public partial class WeaponPaints
                 if (agentObject["team"]?.Value<int>() != player.TeamNum)
                     continue;
 
-                string name = agentObject["agent_name"]?.ToString() ?? "";
+                string name =
+                    agentObject["agent_name"]?.ToString() ?? "";
 
-                if (name.Length > 0)
-                    agentsSelectionMenu.AddMenuOption(name, HandleAgentSelection);
+                if (name.Length == 0)
+                    continue;
+
+                string? agentModel =
+                    agentObject["model"]?.ToString();
+
+                var agentOption = agentsSelectionMenu.AddMenuOption(
+                    name,
+                    HandleAgentSelection);
+
+                SetMenuOptionSelection(
+                    agentsSelectionMenu,
+                    agentOption,
+                    target => GetAgentSelectionMarker(
+                        target,
+                        agentModel)
+                );
             }
 
             agentsSelectionMenu.Open(player);

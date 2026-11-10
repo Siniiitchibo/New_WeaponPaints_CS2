@@ -5,6 +5,7 @@
 		public int Paint { get; set; }
 		public int Seed { get; set; }
 		public float Wear { get; set; }
+		public bool CustomWear { get; set; }
 		public string Nametag { get; set; } = "";
 		public bool StatTrak { get; set; }
 		public int StatTrakCount { get; set; }

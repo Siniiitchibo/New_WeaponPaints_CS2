@@ -52,9 +52,9 @@ jobs:
               "gamedata/weaponpaints.json",
               "hud/BuildPoplightMenu.ps1",
               "hud/layout/poplight_menu.xml",
-              "hud/layout/poplight_submenu.xml",
+              "hud/layout/poplight_submenu_wear.xml",
               "hud/styles/poplight_menu.css",
-              "hud/styles/poplight_submenu.css",
+              "hud/styles/poplight_submenu_wear.css",
           ]
 
           for name in required:
@@ -84,7 +84,7 @@ jobs:
                   "ModuleVersion in WeaponPaints.cs must match VERSION."
               )
 
-          for name in ("poplight_menu", "poplight_submenu"):
+          for name in ("poplight_menu", "poplight_submenu_wear"):
               ET.parse(f"hud/layout/{name}.xml")
 
           for directory in ("lang", "data", "gamedata"):
@@ -114,6 +114,9 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
+
+      - name: Run engine-free regression checks
+        run: dotnet run --project tests/WeaponPaints.Checks/WeaponPaints.Checks.csproj -c Release
 
       - name: Publish WeaponPaints
         env:

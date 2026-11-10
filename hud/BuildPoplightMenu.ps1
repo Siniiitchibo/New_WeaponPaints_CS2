@@ -1,6 +1,7 @@
 param(
     [string]$Cs2 = "",
-    [string]$AddonName = "poplight_menu"
+    [string]$AddonName = "poplight_menu",
+    [switch]$InstallForLocalTest
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,7 +33,7 @@ try {
         },
         @{
             Folder = "styles"
-            Name = "poplight_submenu"
+            Name = "poplight_submenu_wear"
             SourceExt = "css"
             CompiledExt = "vcss_c"
         },
@@ -44,7 +45,7 @@ try {
         },
         @{
             Folder = "layout"
-            Name = "poplight_submenu"
+            Name = "poplight_submenu_wear"
             SourceExt = "xml"
             CompiledExt = "vxml_c"
         }
@@ -111,6 +112,19 @@ try {
     }
 
     Write-Host ""
+    if ($InstallForLocalTest) {
+        foreach ($resource in $resources) {
+            if ($resource.Name -ne "poplight_submenu_wear") { continue }
+            $relative = "panorama\$($resource.Folder)\custom_game\$($resource.Name).$($resource.CompiledExt)"
+            $compiled = Join-Path $gameAddon $relative
+            $localTarget = Join-Path (Join-Path $Cs2 "game\csgo") $relative
+            New-Item -ItemType Directory -Path (Split-Path $localTarget) -Force | Out-Null
+            Copy-Item -LiteralPath $compiled -Destination $localTarget -Force
+            Write-Host "Local test: $localTarget" -ForegroundColor Green
+        }
+        Write-Host "Restart CS2 before testing. Public Workshop was not updated." -ForegroundColor Yellow
+    }
+
     Write-Host "Obe menu su skompilovane." -ForegroundColor Green
     Write-Host "Addon pre Workshop:"
     Write-Host $gameAddon

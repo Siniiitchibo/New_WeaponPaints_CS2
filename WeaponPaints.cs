@@ -1,4 +1,4 @@
-using CounterStrikeSharp.API;
+﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
@@ -11,7 +11,7 @@ using MySqlConnector;
 
 namespace WeaponPaints;
 
-[MinimumApiVersion(338)]
+[MinimumApiVersion(378)]
 public partial class WeaponPaints : BasePlugin, IPluginConfig<WeaponPaintsConfig>
 {
 	internal static WeaponPaints Instance { get; private set; } = new();
@@ -21,11 +21,17 @@ public partial class WeaponPaints : BasePlugin, IPluginConfig<WeaponPaintsConfig
     public override string ModuleAuthor => "Nereziel, daffyy, Siniii_tchibo";
 	public override string ModuleDescription => "Skin, gloves, agents and knife selector.";
 	public override string ModuleName => "New_WeaponPaints_CS2";
-	public override string ModuleVersion => "0.2.9";
+	public override string ModuleVersion => "0.3.0";
 
 	public override void Load(bool hotReload)
 	{
-		Instance = this;
+        Instance = this;
+        _cosmeticWorkActive = true;
+        // Validate local data before installing any native UI/listener callbacks.
+        Utility.LoadSkinsFromFile(Path.Combine(ModuleDirectory, "data", $"skins_{_config.SkinsLanguage}.json"));
+        Utility.LoadGlovesFromFile(Path.Combine(ModuleDirectory, "data", $"gloves_{_config.SkinsLanguage}.json"));
+        Utility.LoadAgentsFromFile(Path.Combine(ModuleDirectory, "data", $"agents_{_config.SkinsLanguage}.json"));
+        _skinCatalog = new SkinCatalog(SkinsList);
         InitializePanoramaMenus(hotReload);
 
         if (hotReload)
@@ -43,41 +49,49 @@ public partial class WeaponPaints : BasePlugin, IPluginConfig<WeaponPaintsConfig
 					         !string.IsNullOrEmpty(player.IpAddress) && player is
 						         { IsBot: false, Connected: PlayerConnectedState.Connected }))
 			{
+                Players.Add(player);
                 LoadPlayerCosmetics(player);
 			}
 		}
-
-		Utility.LoadSkinsFromFile(ModuleDirectory + $"/data/skins_{_config.SkinsLanguage}.json", Logger);
-		Utility.LoadGlovesFromFile(ModuleDirectory + $"/data/gloves_{_config.SkinsLanguage}.json", Logger);
-		Utility.LoadAgentsFromFile(ModuleDirectory + $"/data/agents_{_config.SkinsLanguage}.json", Logger);
 
 		RegisterListeners();
 	}
 
 	public override void Unload(bool hotReload)
 	{
+        SaveConnectedPlayerCosmetics();
         _cosmeticWorkActive = false;
         _cosmeticSessions.Clear();
+        if (_giveNamedItemHooked)
+        {
+            VirtualFunctions.GiveNamedItemFunc.Unhook(OnGiveNamedItemPost, HookMode.Post);
+            _giveNamedItemHooked = false;
+        }
+        DrainCosmeticWrites();
         CS2UIKit.UIKit.Shutdown();
 
         _panoramaSessions.Clear();
 
         _panoramaMain = null;
         _panoramaSub = null;
-        // Native hook outlives the plugin's AssemblyLoadContext; without this, css_plugins reload
-        // leaves the old OnGiveNamedItemPost delegate registered and the next GiveNamedItem crashes the server.
-        if (!_giveNamedItemHooked) return;
-
-		VirtualFunctions.GiveNamedItemFunc.Unhook(OnGiveNamedItemPost, HookMode.Post);
-		_giveNamedItemHooked = false;
+        _playerWeaponImage.Clear();
+            _playerPreviewTokens.Clear();
+            _originalAgentModels.Clear();
+        _weaponRefreshes.Clear();
+        Players.Clear();
 	}
 
 	public void OnConfigParsed(WeaponPaintsConfig config)
 	{
-		Config = config;
-		_config = config;
+        config.Additional ??= new Additional();
+        config.Additional.CommandStattrak ??= [];
+        config.Additional.CommandRefresh ??= [];
+        config.Additional.CommandKill ??= [];
+        config.CmdRefreshCooldownSeconds = Math.Clamp(config.CmdRefreshCooldownSeconds, 0, 3600);
+        Config = config;
+        _config = config;
 
-		if (config.DatabaseHost.Length < 1 || config.DatabaseName.Length < 1 || config.DatabaseUser.Length < 1)
+		if (string.IsNullOrWhiteSpace(config.DatabaseHost) || string.IsNullOrWhiteSpace(config.DatabaseName) || string.IsNullOrWhiteSpace(config.DatabaseUser))
 		{
 			throw new InvalidOperationException("You need to setup Database credentials in \"configs/plugins/WeaponPaints/WeaponPaints.json\"!");
 		}

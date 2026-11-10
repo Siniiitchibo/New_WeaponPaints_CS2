@@ -2,6 +2,7 @@
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Entities;
+using CounterStrikeSharp.API.Modules.Utils;
 using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
 using Microsoft.Extensions.Logging;
@@ -40,7 +41,7 @@ namespace WeaponPaints
             return HookResult.Continue;
         }
 
-        [GameEventHandler]
+        [GameEventHandler(HookMode.Pre)]
         public HookResult OnPlayerDisconnect(
             EventPlayerDisconnect @event,
             GameEventInfo info)
@@ -53,6 +54,8 @@ namespace WeaponPaints
             PlayerInfo playerInfo = CaptureCosmeticPlayerInfo(player);
             int slot = playerInfo.Slot;
 
+            var snapshot = ArePlayerCosmeticsReady(player)
+                ? CosmeticSnapshot.Capture(slot) : [];
             // Immediately invalidate callbacks belonging to this connection.
             _cosmeticSessions.TryRemove(slot, out _);
 
@@ -61,6 +64,10 @@ namespace WeaponPaints
             _wsKnifeTeams.TryRemove(slot, out _);
             _wsGloveTeams.TryRemove(slot, out _);
             _playerWeaponImage.Remove(slot);
+            _playerPreviewTokens.Remove(slot);
+            _originalAgentModels.Remove(slot);
+            _weaponRefreshes.Remove(slot);
+            _menuActionCooldowns.Remove(slot);
 
             Players.RemoveAll(existing =>
                 !existing.IsValid || existing.Slot == slot);
@@ -74,7 +81,7 @@ namespace WeaponPaints
                 {
                     if (sync is not null)
                     {
-                        await sync.SyncStatTrakToDatabase(playerInfo)
+                        await sync.SyncWeaponPaintsToDatabase(playerInfo, snapshot)
                             .ConfigureAwait(false);
                     }
                 }
@@ -91,13 +98,19 @@ namespace WeaponPaints
         {
             _fadeSeed = 0;
             _nextItemId = MinimumCustomItemId;
+            _gBCommandsAllowed = true;
+            _playerWeaponImage.Clear();
+            _playerPreviewTokens.Clear();
+            _originalAgentModels.Clear();
+            _weaponRefreshes.Clear();
+            _menuActionCooldowns.Clear();
         }
 
         private HookResult OnPlayerSpawn(EventPlayerSpawn @event, GameEventInfo info)
 		{
 			CCSPlayerController? player = @event.Userid;
 
-			if (player is null || !player.IsValid || Config.Additional is { KnifeEnabled: false, GloveEnabled: false })
+			if (player is null || !player.IsValid || Config.Additional is { KnifeEnabled: false, GloveEnabled: false, AgentEnabled: false })
 				return HookResult.Continue;
 
 			CCSPlayerPawn? pawn = player.PlayerPawn.Value;
@@ -105,11 +118,12 @@ namespace WeaponPaints
 			if (pawn == null || !pawn.IsValid)
 				return HookResult.Continue;
 
-			GivePlayerAgent(player);
-			Server.NextFrame(() =>
-			{
-				GivePlayerGloves(player);
-			});
+            GivePlayerAgent(player);
+            var spawnGuard = CapturePlayerAction(player);
+            Server.NextFrame(() =>
+            {
+                if (IsCurrentPlayerAction(player, spawnGuard)) GivePlayerGloves(player);
+            });
 
 			return HookResult.Continue;
 		}
@@ -153,17 +167,22 @@ namespace WeaponPaints
 
 			if (designerName != null && designerName.Contains("weapon"))
 			{
-				Server.NextWorldUpdate(() =>
-				{
-					var weapon = new CBasePlayerWeapon(entity.Handle);
-					if (!weapon.IsValid) return;
+                var spawnedWeapon = new CHandle<CBasePlayerWeapon>(entity.EntityHandle.Raw);
+                int generation = _mapGeneration;
+                Server.NextWorldUpdate(() =>
+                {
+                    if (!_cosmeticWorkActive || generation != _mapGeneration) return;
+                    var weapon = spawnedWeapon.Value;
+                    if (weapon is null || !weapon.IsValid) return;
 
 					try
 					{
 						SteamID? steamid = null;
 
-						if (weapon.OriginalOwnerXuidLow > 0)
-							steamid = new SteamID(weapon.OriginalOwnerXuidLow);
+                        ulong ownerId = ((ulong)weapon.OriginalOwnerXuidHigh << 32) |
+                            weapon.OriginalOwnerXuidLow;
+                        if (ownerId > 0)
+                            steamid = new SteamID(ownerId);
 
 						CCSPlayerController? player;
 
@@ -171,7 +190,7 @@ namespace WeaponPaints
 						{
 							player = Players.FirstOrDefault(p => p.IsValid && p.SteamID == steamid.SteamId64);
 
-                            player ??= Utilities.GetPlayerFromSteamId(weapon.OriginalOwnerXuidLow);
+                            player ??= Utilities.GetPlayerFromSteamId(ownerId);
                         }
 						else
 						{
@@ -197,9 +216,11 @@ namespace WeaponPaints
 		{
 			if (!Config.Additional.ShowSkinImage) return;
 
-			foreach (var player in Players)
-			{
-				if (_playerWeaponImage.TryGetValue(player.Slot, out var value) && !string.IsNullOrEmpty(value))
+            foreach (var player in Players)
+            {
+                if (!Utility.IsPlayerValid(player) || !player.PawnIsAlive)
+                    continue;
+                if (_playerWeaponImage.TryGetValue(player.Slot, out var value) && !string.IsNullOrEmpty(value))
 				{
                     string imageUrl = System.Net.WebUtility.HtmlEncode(value);
 
@@ -232,6 +253,7 @@ namespace WeaponPaints
 
 		private HookResult OnPlayerDeath(EventPlayerDeath @event, GameEventInfo info)
 		{
+            if (!Config.Additional.SkinEnabled) return HookResult.Continue;
 			CCSPlayerController? player = @event.Attacker;
 			CCSPlayerController? victim = @event.Userid;
 
@@ -241,7 +263,25 @@ namespace WeaponPaints
 			if (victim == null || !victim.IsValid || victim == player)
 				return HookResult.Continue;
 			
-			CBasePlayerWeapon? weapon = player.PlayerPawn.Value?.WeaponServices?.ActiveWeapon.Value;
+            // A grenade can kill while another weapon is held. Count the
+            // actual event weapon, not whichever weapon happens to be active.
+            string eventWeapon = @event.Weapon;
+            CBasePlayerWeapon? weapon = null;
+            var inventory = player.PlayerPawn.Value?.WeaponServices?.MyWeapons;
+            if (inventory is not null)
+            {
+                foreach (var handle in inventory)
+                {
+                    var candidate = handle.Value;
+                    if (candidate is null || !candidate.IsValid)
+                        continue;
+                    if (!WeaponDefindex.TryGetValue(candidate.AttributeManager.Item.ItemDefinitionIndex,
+                            out var candidateClass))
+                        continue;
+                    bool matches = WeaponEventNames.MatchesKill(eventWeapon, candidateClass);
+                    if (matches) { weapon = candidate; break; }
+                }
+            }
 
 			if (weapon == null) return HookResult.Continue;
 
@@ -252,13 +292,24 @@ namespace WeaponPaints
 				
 			if (!weaponInfo.StatTrak) return HookResult.Continue;
 			
-			weaponInfo.StatTrakCount += 1;
+			weaponInfo.StatTrakCount = weaponInfo.StatTrakCount < int.MaxValue
+                ? weaponInfo.StatTrakCount + 1 : int.MaxValue;
 				
 			CAttributeListSetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.NetworkedDynamicAttributes.Handle, "kill eater", ViewAsFloat((uint)weaponInfo.StatTrakCount));
 			CAttributeListSetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.NetworkedDynamicAttributes.Handle, "kill eater score type", 0);
 				
 			CAttributeListSetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.AttributeList.Handle, "kill eater", ViewAsFloat((uint)weaponInfo.StatTrakCount));
 			CAttributeListSetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.AttributeList.Handle, "kill eater score type", 0);
+
+            var sync = WeaponSync;
+            if (sync is not null)
+            {
+                var playerInfo = CaptureCosmeticPlayerInfo(player);
+                var snapshot = CosmeticSnapshot.Capture(playerInfo.Slot, weaponDefIndex)
+                    .Where(entry => entry.Team == player.Team).ToArray();
+                _ = QueuePlayerCosmeticWork(playerInfo.Slot,
+                    () => sync.SyncStatTrakToDatabase(playerInfo, snapshot));
+            }
 
 			return HookResult.Continue;
 		}

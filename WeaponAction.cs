@@ -6,7 +6,6 @@ using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
-using Newtonsoft.Json.Linq;
 
 namespace WeaponPaints
 {
@@ -19,10 +18,7 @@ namespace WeaponPaints
             if (!ArePlayerCosmeticsReady(player))
                 return;
 
-            if (!Config.Additional.SkinEnabled)
-                return;
-
-            if (!GPlayerWeaponsInfo.TryGetValue(player.Slot, out _))
+            if (!weapon.IsValid)
                 return;
 
             var designerName = weapon.DesignerName ?? "";
@@ -31,9 +27,21 @@ namespace WeaponPaints
                 designerName.Contains("knife") ||
                 designerName.Contains("bayonet");
 
+            if (isKnife && Config.Additional.KnifeEnabled && Config.Additional.GiveRandomKnife)
+            {
+                var knives = GPlayersKnife.GetOrAdd(player.Slot,
+                    _ => new ConcurrentDictionary<CsTeam, string>());
+                if (!knives.ContainsKey(player.Team))
+                {
+                    var choices = WeaponDefindex.Where(pair => pair.Key >= 500).Select(pair => pair.Value).ToArray();
+                    if (choices.Length > 0)
+                        knives[player.Team] = choices[Random.Shared.Next(choices.Length)];
+                }
+            }
+
             switch (isKnife)
             {
-                case true when !HasChangedKnife(player, out _):
+                case true when !Config.Additional.KnifeEnabled || !HasChangedKnife(player, out _):
                     return;
 
                 case true:
@@ -65,6 +73,9 @@ namespace WeaponPaints
                     break;
             }
 
+            if (!Config.Additional.SkinEnabled)
+                return;
+
             UpdatePlayerEconItemId(weapon.AttributeManager.Item);
 
             int weaponDefIndex = weapon.AttributeManager.Item.ItemDefinitionIndex;
@@ -72,7 +83,6 @@ namespace WeaponPaints
 			
 			weapon.AttributeManager.Item.AccountID = (uint)player.SteamID;
 			
-			List<JObject> skinInfo;
 			bool isLegacyModel;
 
 			if (_config.Additional.GiveRandomSkin &&
@@ -82,30 +92,27 @@ namespace WeaponPaints
 				weapon.FallbackPaintKit = GetRandomPaint(weaponDefIndex);
 				weapon.FallbackSeed = 0;
 				weapon.FallbackWear = 0.01f;
+                if (isKnife && weapon.FallbackPaintKit is 409 or 413)
+                {
+                    var randomModel = GetKnifeWearModelSlot(weaponDefIndex, weapon.FallbackPaintKit);
+                    weapon.FallbackWear = KnifeWearPolicy.AutomaticWear(randomModel.Slot);
+                }
 			
 				weapon.AttributeManager.Item.NetworkedDynamicAttributes.Attributes.RemoveAll();
-				CAttributeListSetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.NetworkedDynamicAttributes.Handle, "set item texture prefab", GetRandomPaint(weaponDefIndex));
+				CAttributeListSetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.NetworkedDynamicAttributes.Handle, "set item texture prefab", weapon.FallbackPaintKit);
 				CAttributeListSetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.NetworkedDynamicAttributes.Handle, "set item texture seed", 0);
-				CAttributeListSetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.NetworkedDynamicAttributes.Handle, "set item texture wear", 0.01f);
+				CAttributeListSetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.NetworkedDynamicAttributes.Handle, "set item texture wear", weapon.FallbackWear);
 			
 				weapon.AttributeManager.Item.AttributeList.Attributes.RemoveAll();
-				CAttributeListSetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.AttributeList.Handle, "set item texture prefab", GetRandomPaint(weaponDefIndex));
+				CAttributeListSetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.AttributeList.Handle, "set item texture prefab", weapon.FallbackPaintKit);
 				CAttributeListSetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.AttributeList.Handle, "set item texture seed", 0);
-				CAttributeListSetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.AttributeList.Handle, "set item texture wear", 0.01f);
+				CAttributeListSetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.AttributeList.Handle, "set item texture wear", weapon.FallbackWear);
 			
 				fallbackPaintKit = weapon.FallbackPaintKit;
 			
 				if (fallbackPaintKit == 0)
 					return;
-
-                skinInfo =
-				[
-					.. SkinsList.Where(w =>
-						w["weapon_defindex"]?.ToObject<int>() == weaponDefIndex &&
-						w["paint"]?.ToObject<int>() == fallbackPaintKit)
-				];
-
-                isLegacyModel = skinInfo.Count <= 0 || skinInfo[0].Value<bool>("legacy_model");
+            isLegacyModel = _skinCatalog.IsLegacy(weaponDefIndex, fallbackPaintKit);
 				UpdatePlayerWeaponMeshGroupMask(player, weapon, isLegacyModel);
 				return;
 			}
@@ -129,14 +136,9 @@ namespace WeaponPaints
 
             if (isKnife && weaponInfo.Paint is 409 or 413)
             {
-                int knifeSlot = SkinsList
-                    .Where(skin => skin["paint"]?.ToObject<int>() == weaponInfo.Paint)
-                    .Select(skin => skin["weapon_defindex"]?.ToObject<int>() ?? 0)
-                    .Where(defIndex => defIndex >= 500)
-                    .Distinct()
-                    .Count(defIndex => defIndex < weaponDefIndex);
-
-                weapon.FallbackWear = 0.001f + knifeSlot * 0.004f;
+                var model = GetKnifeWearModelSlot(weaponDefIndex, weaponInfo.Paint);
+                weapon.FallbackWear = KnifeWearPolicy.RenderWear(
+                    weaponInfo.Wear, weaponInfo.CustomWear, model.Slot, model.Count);
             }
 
             nint networkAttributes =
@@ -199,15 +201,7 @@ namespace WeaponPaints
 
 			if (weaponInfo.KeyChain != null) SetKeychain(player, weapon);
 			if (weaponInfo.Stickers.Count > 0) SetStickers(player, weapon);
-
-            skinInfo =
-            [
-				.. SkinsList.Where(w =>
-					w["weapon_defindex"]?.ToObject<int>() == weaponDefIndex &&
-					w["paint"]?.ToObject<int>() == fallbackPaintKit)
-            ];
-
-            isLegacyModel = skinInfo.Count <= 0 || skinInfo[0].Value<bool>("legacy_model");
+            isLegacyModel = _skinCatalog.IsLegacy(weaponDefIndex, fallbackPaintKit);
 			UpdatePlayerWeaponMeshGroupMask(player, weapon, isLegacyModel);
 		}
 		
@@ -225,7 +219,7 @@ namespace WeaponPaints
 
 			float incrementedWear = playerWear.AddOrUpdate(
 				weaponDefIndex,
-				currentWear + wearIncrement,
+                Math.Clamp(currentWear + wearIncrement, 0f, 1f),
 				(_, oldWear) => Math.Min(oldWear + wearIncrement, 1.0f)
 			);
 
@@ -305,7 +299,6 @@ namespace WeaponPaints
 
 		private static bool PlayerHasKnife(CCSPlayerController? player)
 		{
-			if (!_config.Additional.KnifeEnabled) return false;
 
 			if (player == null || !player.IsValid || !player.PlayerPawn.IsValid)
 			{
@@ -343,6 +336,34 @@ namespace WeaponPaints
 			if (player.Team is CsTeam.None or CsTeam.Spectator)
 				return;
 
+            int refreshSlot = player.Slot;
+            var actionGuard = CapturePlayerAction(player);
+            if (_weaponRefreshes.TryGetValue(refreshSlot, out var pending) &&
+                IsCurrentPlayerAction(player, pending.Guard))
+            {
+                pending.Pending = true;
+                pending.Preferred = preferredWeaponClassname ?? pending.Preferred;
+                pending.PendingClasses.Add(preferredWeaponClassname);
+                return;
+            }
+            var refreshState = new WeaponRefreshState(actionGuard, preferredWeaponClassname);
+            _weaponRefreshes[refreshSlot] = refreshState;
+            AddTimer(0.5f, () =>
+            {
+                if (!_weaponRefreshes.TryGetValue(refreshSlot, out var current) ||
+                    !ReferenceEquals(current, refreshState))
+                    return;
+                _weaponRefreshes.Remove(refreshSlot);
+                if (current.Pending && IsCurrentPlayerAction(player, actionGuard))
+                {
+                    if (current.PendingClasses.Contains(null))
+                        RefreshWeapons(player);
+                    else
+                        foreach (var classname in current.PendingClasses)
+                            RefreshWeapons(player, classname);
+                }
+            }, TimerFlags.STOP_ON_MAPCHANGE);
+
 			var hasKnife = false;
             var refreshPawnHandle = player.PlayerPawn.Value.Handle;
 
@@ -366,6 +387,22 @@ namespace WeaponPaints
 					CCSWeaponBaseVData? weaponData = weapon.Value.As<CCSWeaponBase>().VData;
 
 					if (weaponData == null) continue;
+                    // Cosmetic changes rebuild only the requested weapon. A
+                    // knife-model change must match the old knife's gear slot.
+                    // Explicit profile/!wp refreshes pass null and cover all guns.
+                    if (preferredWeaponClassname is not null)
+                    {
+                        bool knifeRequest = preferredWeaponClassname.StartsWith(
+                            "weapon_knife", StringComparison.OrdinalIgnoreCase) ||
+                            preferredWeaponClassname.Equals("weapon_bayonet", StringComparison.OrdinalIgnoreCase);
+                        bool matches = knifeRequest
+                            ? weaponData.GearSlot == gear_slot_t.GEAR_SLOT_KNIFE
+                            : WeaponDefindex.TryGetValue(weapon.Value.AttributeManager.Item.ItemDefinitionIndex,
+                                out var currentClass) && string.Equals(currentClass, preferredWeaponClassname,
+                                StringComparison.OrdinalIgnoreCase);
+                        if (!matches) continue;
+                    }
+
 
 					if (weaponData.GearSlot is gear_slot_t.GEAR_SLOT_RIFLE or gear_slot_t.GEAR_SLOT_PISTOL)
 					{
@@ -402,8 +439,9 @@ namespace WeaponPaints
 
 			AddTimer(0.23f, () =>
 					{
-						if (!_gBCommandsAllowed) return;
-						if (!player.IsValid || !player.PawnIsAlive || player.PlayerPawn.Value == null) return;
+                        // Once items were removed, restore them even if the round
+                        // ended in the meantime, but never on another pawn/session.
+                        if (!IsCurrentPlayerAction(player, actionGuard)) return;
 
 						if (!PlayerHasKnife(player) && hasKnife)
 						{
@@ -416,6 +454,7 @@ namespace WeaponPaints
 							{
 								try
 								{
+                                    if (!IsCurrentPlayerAction(player, actionGuard)) return;
 									if (newKnife != null && newKnife.IsValid)
 										newKnife.AddEntityIOEvent("Kill", newKnife, null, "", 0.01f);
 									if (newWeapon != null && newWeapon.IsValid)
@@ -438,7 +477,7 @@ namespace WeaponPaints
 						{
 							try
 							{
-								if (!newWeapon.IsValid || !player.IsValid) return;
+								if (!IsCurrentPlayerAction(player, actionGuard) || !newWeapon.IsValid) return;
 
 								newWeapon.Clip1 = ammo.Item1;
 								newWeapon.ReserveAmmo[0] = ammo.Item2;
@@ -460,9 +499,7 @@ namespace WeaponPaints
 
                 AddTimer(0.4f, () =>
                 {
-                    if (!_gBCommandsAllowed ||
-                        !Utility.IsPlayerValid(player) ||
-                        !player.PawnIsAlive)
+                    if (!_gBCommandsAllowed || !IsCurrentPlayerAction(player, actionGuard))
                     {
                         return;
                     }
@@ -535,7 +572,7 @@ namespace WeaponPaints
 
 		private void GivePlayerGloves(CCSPlayerController player)
 		{
-            if (!ArePlayerCosmeticsReady(player))
+            if (!Config.Additional.GloveEnabled || !ArePlayerCosmeticsReady(player))
                 return;
             if (!Utility.IsPlayerValid(player) || (LifeState_t)player.LifeState != LifeState_t.LIFE_ALIVE) return;
 
@@ -543,6 +580,7 @@ namespace WeaponPaints
 			if (pawn == null || !pawn.IsValid)
 				return;
 
+            var gloveGuard = CapturePlayerAction(player);
 			CEconItemView item = pawn.EconGloves;
 
 			item.NetworkedDynamicAttributes.Attributes.RemoveAll();
@@ -554,17 +592,21 @@ namespace WeaponPaints
 			{	
 				try
 				{
-					if (!player.IsValid)
-						return;
-
-					if (!player.PawnIsAlive || !pawn.IsValid)
+                    if (!IsCurrentPlayerAction(player, gloveGuard) || !pawn.IsValid)
 						return;
 
 					if (!GPlayersGlove.TryGetValue(player.Slot, out var gloveInfo) ||
-					    !gloveInfo.TryGetValue(player.Team, out var gloveId) ||
-					    gloveId == 0 ||
-					    !HasChangedPaint(player, gloveId, out var weaponInfo) || weaponInfo == null)
-						return;
+                        !gloveInfo.TryGetValue(player.Team, out var gloveId))
+                        return;
+                    if (gloveId == 0)
+                    {
+                        item.ItemDefinitionIndex = 0;
+                        item.Initialized = false;
+                        player.ExecuteClientCommand("lastinv");
+                        return;
+                    }
+                    if (!HasChangedPaint(player, gloveId, out var weaponInfo) || weaponInfo is null)
+                        return;
 
 					item.ItemDefinitionIndex = gloveId;
 					
@@ -587,30 +629,14 @@ namespace WeaponPaints
 					SetBodygroup(pawn, "first_or_third_person", 0);
 					AddTimer(0.2f, () =>
 					{
-						if (pawn.IsValid) SetBodygroup(pawn, "first_or_third_person", 1);
+						if (IsCurrentPlayerAction(player, gloveGuard) && pawn.IsValid) SetBodygroup(pawn, "first_or_third_person", 1);
 					}, TimerFlags.STOP_ON_MAPCHANGE);
 				}
 				catch (Exception) { }
 			}, TimerFlags.STOP_ON_MAPCHANGE);
 		}
 
-		private static int GetRandomPaint(int defindex)
-		{
-			if (SkinsList.Count == 0)
-				return 0;
-
-            Random rnd = new();
-
-            // Filter weapons by the provided defindex
-            var filteredWeapons = SkinsList.Where(w => w["weapon_defindex"]?.ToString() == defindex.ToString()).ToList();
-
-			if (filteredWeapons.Count == 0)
-				return 0;
-
-			var randomWeapon = filteredWeapons[rnd.Next(filteredWeapons.Count)];
-
-			return int.TryParse(randomWeapon["paint"]?.ToString(), out var paintValue) ? paintValue : 0;
-		}
+        private static int GetRandomPaint(int defindex) => _skinCatalog.RandomPaint(defindex);
 
 		//xstage idea on css discord
 		public static void SubclassChange(CBasePlayerWeapon weapon, ushort itemD)
@@ -647,26 +673,43 @@ namespace WeaponPaints
 
 		private static void GivePlayerAgent(CCSPlayerController player)
 		{
-            if (!Instance.ArePlayerCosmeticsReady(player))
+            if (!Instance.Config.Additional.AgentEnabled || !Instance.ArePlayerCosmeticsReady(player))
                 return;
-            if (!GPlayersAgent.TryGetValue(player.Slot, out var value)) return;
-
-			var model = player.TeamNum == 3 ? value.CT : value.T;
-			if (string.IsNullOrEmpty(model)) return;
+            GPlayersAgent.TryGetValue(player.Slot, out var value);
+            var model = player.TeamNum == 3 ? value.CT : value.T;
 
 			if (player.PlayerPawn.Value == null)
 				return;
 
+            var agentGuard = Instance.CapturePlayerAction(player);
 			try
 			{
 				Server.NextFrame(() =>
 				{
-					if (!player.IsValid) return;
+                    if (!Instance.IsCurrentPlayerAction(player, agentGuard)) return;
 
 					var pawn = player.PlayerPawn.Value;
 					if (pawn == null || !pawn.IsValid) return;
 
-					pawn.SetModel($"agents/models/{model}.vmdl");
+                    int slot = player.Slot;
+                    if (string.IsNullOrEmpty(model))
+                    {
+                        if (Instance._originalAgentModels.TryGetValue(slot, out var original) &&
+                            original.Pawn == pawn.Handle)
+                        {
+                            pawn.SetModel(original.Model);
+                            Instance._originalAgentModels.Remove(slot);
+                        }
+                        return;
+                    }
+                    if (!Instance._originalAgentModels.TryGetValue(slot, out var saved) || saved.Pawn != pawn.Handle)
+                    {
+                        string originalModel = pawn.CBodyComponent?.SceneNode?.GetSkeletonInstance()
+                            .ModelState.ModelName ?? "";
+                        if (!string.IsNullOrEmpty(originalModel))
+                            Instance._originalAgentModels[slot] = (pawn.Handle, originalModel);
+                    }
+                    pawn.SetModel($"agents/models/{model}.vmdl");
 				});
 			}
 			catch (Exception)

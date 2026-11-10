@@ -19,10 +19,8 @@ namespace WeaponPaints
 			try
 			{
 				await using var connection = await WeaponPaints.Database.GetConnectionAsync();
-				await using var transaction = await connection.BeginTransactionAsync();
 
-				try
-				{
+                // MySQL DDL commits implicitly; table/schema setup is idempotent.
 					string[] createTableQueries =
 					[
 						@"
@@ -32,6 +30,7 @@ namespace WeaponPaints
 					        `weapon_defindex` int(6) NOT NULL,
 					        `weapon_paint_id` int(6) NOT NULL,
 					        `weapon_wear` float NOT NULL DEFAULT 0.000001,
+                            `weapon_wear_custom` tinyint(1) NOT NULL DEFAULT 0,
 					        `weapon_seed` int(16) NOT NULL DEFAULT 0,
 					        `weapon_nametag` VARCHAR(128) DEFAULT NULL,
 					        `weapon_stattrak` tinyint(1) NOT NULL DEFAULT 0,
@@ -72,16 +71,36 @@ namespace WeaponPaints
 
 					foreach (var query in createTableQueries)
 					{
-						await connection.ExecuteAsync(query, transaction: transaction);
+						await connection.ExecuteAsync(query);
 					}
 
-					await transaction.CommitAsync();
-				}
-				catch (Exception)
-				{
-					await transaction.RollbackAsync();
-					throw new Exception("[WeaponPaints] Unable to create tables!");
-				}
+
+                    const string wearColumnCheck = @"
+                        SELECT COUNT(*) FROM information_schema.COLUMNS
+                        WHERE TABLE_SCHEMA = DATABASE()
+                          AND TABLE_NAME = 'wp_player_skins'
+                          AND COLUMN_NAME = 'weapon_wear_custom'";
+                    if (await connection.ExecuteScalarAsync<int>(wearColumnCheck) == 0)
+                    {
+                        try
+                        {
+                            await connection.ExecuteAsync(@"
+                                ALTER TABLE `wp_player_skins`
+                                ADD COLUMN `weapon_wear_custom` tinyint(1) NOT NULL DEFAULT 0");
+                        }
+                        catch (MySqlConnector.MySqlException ex) when (ex.Number == 1060)
+                        {
+                            // A parallel server already added this column.
+                            return;
+                        }
+
+                        // Preserve custom wear already chosen in the 0.2.10 test.
+                        // The two fixed finishes keep their original automatic mode.
+                        await connection.ExecuteAsync(@"
+                            UPDATE `wp_player_skins` SET `weapon_wear_custom` = 1
+                            WHERE `weapon_paint_id` NOT IN (0, 409, 413)
+                              AND ABS(`weapon_wear` - 0.01) > 0.000001");
+                    }
 			}
 			catch (Exception ex)
 			{
@@ -96,47 +115,26 @@ namespace WeaponPaints
 			return player is { IsValid: true, IsBot: false, IsHLTV: false, UserId: not null };
 		}
 
-		internal static void LoadSkinsFromFile(string filePath, ILogger logger)
-		{
-			var json = File.ReadAllText(filePath);
-			try
-			{
-				var deserializedSkins = JsonConvert.DeserializeObject<List<JObject>>(json);
-				WeaponPaints.SkinsList = deserializedSkins ?? [];
-			}
-			catch (FileNotFoundException)
-			{
-				logger?.LogError("Not found \"skins.json\" file");
-			}
-		}
+        private static List<JObject> LoadCatalogFile(string filePath)
+        {
+            try
+            {
+                return JsonConvert.DeserializeObject<List<JObject>>(File.ReadAllText(filePath))
+                    ?? throw new InvalidDataException("Item data must contain a JSON array.");
+            }
+            catch (Exception ex) when (ex is IOException or JsonException)
+            {
+                throw new InvalidOperationException(
+                    $"Unable to load item data '{filePath}'. Check SkinsLanguage and the published data directory.", ex);
+            }
+        }
 
-		internal static void LoadGlovesFromFile(string filePath, ILogger logger)
-		{
-			try
-			{
-				var json = File.ReadAllText(filePath);
-				var deserializedSkins = JsonConvert.DeserializeObject<List<JObject>>(json);
-				WeaponPaints.GlovesList = deserializedSkins ?? [];
-			}
-			catch (FileNotFoundException)
-			{
-				logger?.LogError("Not found \"gloves.json\" file");
-			}
-		}
-
-		internal static void LoadAgentsFromFile(string filePath, ILogger logger)
-		{
-			try
-			{
-				var json = File.ReadAllText(filePath);
-				var deserializedSkins = JsonConvert.DeserializeObject<List<JObject>>(json);
-				WeaponPaints.AgentsList = deserializedSkins ?? [];
-			}
-			catch (FileNotFoundException)
-			{
-				logger?.LogError("Not found \"agents.json\" file");
-			}
-		}
+        internal static void LoadSkinsFromFile(string path) =>
+            WeaponPaints.SkinsList = LoadCatalogFile(path);
+        internal static void LoadGlovesFromFile(string path) =>
+            WeaponPaints.GlovesList = LoadCatalogFile(path);
+        internal static void LoadAgentsFromFile(string path) =>
+            WeaponPaints.AgentsList = LoadCatalogFile(path);
 
 		internal static void Log(string message)
 		{
@@ -164,10 +162,10 @@ namespace WeaponPaints
             ILogger logger)
         {
             const string versionUrl =
-                "https://raw.githubusercontent.com/Siniiitchibo/cs2-WeaponPaints/main/VERSION";
+                "https://raw.githubusercontent.com/Siniiitchibo/New_WeaponPaints_CS2/main/VERSION";
 
             const string releasesUrl =
-                "https://github.com/Siniiitchibo/cs2-WeaponPaints/releases";
+                "https://github.com/Siniiitchibo/New_WeaponPaints_CS2/releases";
 
             try
             {
@@ -232,7 +230,7 @@ namespace WeaponPaints
         internal static void ShowAd(string moduleVersion)
 		{
 			Console.WriteLine("			>> Version: " + moduleVersion);
-            Console.WriteLine("\t\t\t>> GitHub: https://github.com/Siniiitchibo/cs2-WeaponPaints"); Console.WriteLine(" ");
+            Console.WriteLine("\t\t\t>> GitHub: https://github.com/Siniiitchibo/New_WeaponPaints_CS2"); Console.WriteLine(" ");
 		}
 	}
 }

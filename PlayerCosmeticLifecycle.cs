@@ -38,12 +38,20 @@ public partial class WeaponPaints
             {
                 await previous.ConfigureAwait(false);
 
-                if (!_cosmeticWorkActive)
-                    return;
-
                 try
                 {
-                    await work().ConfigureAwait(false);
+                    for (int attempt = 0; ; attempt++)
+                    {
+                        try
+                        {
+                            await work().ConfigureAwait(false);
+                            break;
+                        }
+                        catch (MySqlConnector.MySqlException ex) when (ex.IsTransient && attempt < 2)
+                        {
+                            await Task.Delay(150 * (attempt + 1)).ConfigureAwait(false);
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -160,19 +168,51 @@ public partial class WeaponPaints
 
                 session.Ready = true;
 
-                Logger.LogInformation(
-                    "Cosmetics loaded for {SteamId}, slot {Slot}.",
-                    playerInfo.SteamId,
-                    playerInfo.Slot
-                );
+                if (Logger.IsEnabled(LogLevel.Information))
+                    Logger.LogInformation("Cosmetics loaded for {SteamId}, slot {Slot}.",
+                        playerInfo.SteamId, playerInfo.Slot);
 
                 if (!currentPlayer.PawnIsAlive)
                     return;
 
                 GivePlayerGloves(currentPlayer);
-                RefreshWeapons(currentPlayer);
+                if (Config.Additional.SkinEnabled || Config.Additional.KnifeEnabled)
+                    RefreshWeapons(currentPlayer);
                 GivePlayerAgent(currentPlayer);
             });
         });
     }
+
+    private void SaveConnectedPlayerCosmetics()
+    {
+        var sync = WeaponSync;
+        if (sync is null)
+            return;
+        foreach (var player in Utilities.GetPlayers())
+        {
+            if (!Utility.IsPlayerValid(player) || !ArePlayerCosmeticsReady(player))
+                continue;
+            var info = CaptureCosmeticPlayerInfo(player);
+            var snapshot = CosmeticSnapshot.Capture(info.Slot);
+            _ = QueuePlayerCosmeticWork(info.Slot,
+                () => sync.SyncWeaponPaintsToDatabase(info, snapshot));
+        }
+    }
+
+    private void DrainCosmeticWrites()
+    {
+        Task[] pending;
+        lock (_cosmeticQueueLock)
+            pending = _cosmeticQueueTails.Values.ToArray();
+        try
+        {
+            if (!Task.WhenAll(pending).Wait(TimeSpan.FromSeconds(5)))
+                Logger.LogWarning("Cosmetic DB writes are still finishing after the unload timeout.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Unable to finish cosmetic DB writes during unload.");
+        }
+    }
+
 }

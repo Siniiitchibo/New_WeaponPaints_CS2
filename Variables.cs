@@ -76,11 +76,14 @@ public partial class WeaponPaints
 	internal static readonly ConcurrentDictionary<int, (string? CT, string? T)> GPlayersAgent = new();
 	internal static readonly ConcurrentDictionary<int, ConcurrentDictionary<CsTeam, ConcurrentDictionary<int, WeaponInfo>>> GPlayerWeaponsInfo = new();
 	internal static List<JObject> SkinsList = [];
+    private static SkinCatalog _skinCatalog = new([]);
 	internal static List<JObject> GlovesList = [];
 	internal static List<JObject> AgentsList = [];
 	internal static WeaponSynchronization? WeaponSync;
 	private static bool _gBCommandsAllowed = true;
     private readonly Dictionary<int, string> _playerWeaponImage = [];
+    private readonly Dictionary<int, object> _playerPreviewTokens = [];
+    private readonly Dictionary<int, (nint Pawn, string Model)> _originalAgentModels = [];
 
     private static readonly Dictionary<int, DateTime> CommandsCooldown = [];
     internal static Database? Database;

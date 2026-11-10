@@ -1,0 +1,308 @@
+<root>
+	<styles>
+		<include src="s2r://panorama/styles/custom_game/poplight_menu.vcss_c" />
+		<include src="s2r://panorama/styles/custom_game/poplight_submenu_wear.vcss_c" />
+	</styles>
+
+	<Panel class="poplight-screen" hittest="false">
+		<Panel id="submenu_window"
+               class="poplight-window"
+               hittest="true">
+
+			<Panel class="menu-header" hittest="false">
+				<Label id="submenu_brand"
+                       class="brand"
+                       text="{s:text}" />
+				<Label id="submenu_title"
+                       class="menu-title"
+                       text="{s:text}" />
+				<Label id="submenu_description"
+                       class="menu-description"
+                       text="{s:text}" />
+			</Panel>
+
+			<Panel class="menu-content" hittest="false">
+
+				<Button id="submenu_row_0" class="menu-row">
+					<Label id="submenu_number_0" class="row-number"
+                           text="{s:text}" hittest="false" />
+					<Label id="submenu_text_0" class="row-title submenu-row-title"
+                           text="{s:text}" hittest="false" />
+					<Label id="poplight_submenu_arrow_0" class="row-arrow"
+                           text="{s:text}" hittest="false" />
+				</Button>
+
+				<Button id="submenu_row_1" class="menu-row">
+					<Label id="submenu_number_1" class="row-number"
+                           text="{s:text}" hittest="false" />
+					<Label id="submenu_text_1" class="row-title submenu-row-title"
+                           text="{s:text}" hittest="false" />
+					<Label id="poplight_submenu_arrow_1" class="row-arrow"
+                           text="{s:text}" hittest="false" />
+				</Button>
+
+				<Button id="submenu_row_2" class="menu-row">
+					<Label id="submenu_number_2" class="row-number"
+                           text="{s:text}" hittest="false" />
+					<Label id="submenu_text_2" class="row-title submenu-row-title"
+                           text="{s:text}" hittest="false" />
+					<Label id="poplight_submenu_arrow_2" class="row-arrow"
+                           text="{s:text}" hittest="false" />
+				</Button>
+
+				<Button id="submenu_row_3" class="menu-row">
+					<Label id="submenu_number_3" class="row-number"
+                           text="{s:text}" hittest="false" />
+					<Label id="submenu_text_3" class="row-title submenu-row-title"
+                           text="{s:text}" hittest="false" />
+					<Label id="poplight_submenu_arrow_3" class="row-arrow"
+                           text="{s:text}" hittest="false" />
+				</Button>
+
+				<Button id="submenu_row_4" class="menu-row">
+					<Label id="submenu_number_4" class="row-number"
+                           text="{s:text}" hittest="false" />
+					<Label id="submenu_text_4" class="row-title submenu-row-title"
+                           text="{s:text}" hittest="false" />
+					<Label id="poplight_submenu_arrow_4" class="row-arrow"
+                           text="{s:text}" hittest="false" />
+				</Button>
+
+				<Button id="submenu_row_5" class="menu-row">
+					<Label id="submenu_number_5" class="row-number"
+                           text="{s:text}" hittest="false" />
+					<Label id="submenu_text_5" class="row-title submenu-row-title"
+                           text="{s:text}" hittest="false" />
+					<Label id="poplight_submenu_arrow_5" class="row-arrow"
+                           text="{s:text}" hittest="false" />
+				</Button>
+
+			</Panel>
+
+			<Panel class="menu-footer" hittest="false">
+
+				<Panel class="submenu-navigation" hittest="false">
+					<Button id="submenu_previous" class="submenu-nav-button">
+						<Label id="submenu_previous_text"
+                               text="{s:text}" hittest="false" />
+					</Button>
+
+					<Label id="submenu_page" class="submenu-page"
+                           text="{s:text}" hittest="false" />
+
+					<Button id="submenu_next" class="submenu-nav-button">
+						<Label id="submenu_next_text"
+                               text="{s:text}" hittest="false" />
+					</Button>
+				</Panel>
+
+				<Label id="submenu_status" class="menu-status"
+                       text="{s:text}" hittest="false" />
+
+                <Button id="submenu_stattrak" class="stattrak-checkbox submenu-hidden">
+                    <Panel class="stattrak-box" hittest="false">
+                        <Panel class="stattrak-tick" hittest="false" />
+                        <Panel class="stattrak-dash" hittest="false" />
+                    </Panel>
+                    <Label id="submenu_stattrak_text" class="stattrak-text" text="{s:text}" hittest="false" />
+                </Button>
+
+                <!-- Only the plugin's skin-selection menus reveal this footer. -->
+                <Panel id="submenu_wear" class="submenu-wear submenu-hidden" hittest="false">
+                    <Label id="submenu_wear_title" class="wear-title" text="{s:text}" hittest="false" />
+                    <Panel id="submenu_wear_track" class="wear-track" hittest="true">
+                        <Panel class="wear-stops" hittest="false">
+                        <Button id="submenu_wear_step_0" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-0" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_1" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-0" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_2" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-0" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_3" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-0" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_4" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-0" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_5" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-0" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_6" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-0" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_7" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-0" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_8" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-0" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_9" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-0" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_10" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-1" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_11" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-1" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_12" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-1" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_13" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-1" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_14" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-1" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_15" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-1" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_16" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-1" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_17" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-1" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_18" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-1" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_19" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-1" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_20" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-2" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_21" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-2" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_22" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-2" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_23" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-2" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_24" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-2" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_25" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-2" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_26" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-2" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_27" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-2" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_28" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-2" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_29" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-2" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_30" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-3" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_31" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-3" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_32" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-3" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_33" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-3" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_34" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-3" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_35" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-3" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_36" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-3" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_37" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-3" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_38" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-3" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_39" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-3" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_40" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-4" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_41" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-4" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_42" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-4" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_43" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-4" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_44" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-4" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_45" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-4" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_46" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-4" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_47" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-4" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_48" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-4" hittest="false" />
+                        </Button>
+                        <Button id="submenu_wear_step_49" class="wear-stop">
+                            <Panel class="wear-colour wear-colour-4" hittest="false" />
+                        </Button>
+                        </Panel>
+                        <Panel id="submenu_wear_marker" class="wear-marker" hittest="false">
+                            <Panel class="wear-triangle wear-triangle-top" hittest="false">
+                                <Panel class="wear-triangle-row wear-triangle-width-12" hittest="false" />
+                                <Panel class="wear-triangle-row wear-triangle-width-10" hittest="false" />
+                                <Panel class="wear-triangle-row wear-triangle-width-8" hittest="false" />
+                                <Panel class="wear-triangle-row wear-triangle-width-6" hittest="false" />
+                                <Panel class="wear-triangle-row wear-triangle-width-4" hittest="false" />
+                                <Panel class="wear-triangle-row wear-triangle-width-2" hittest="false" />
+                            </Panel>
+                            <Panel class="wear-triangle wear-triangle-bottom" hittest="false">
+                                <Panel class="wear-triangle-row wear-triangle-width-2" hittest="false" />
+                                <Panel class="wear-triangle-row wear-triangle-width-4" hittest="false" />
+                                <Panel class="wear-triangle-row wear-triangle-width-6" hittest="false" />
+                                <Panel class="wear-triangle-row wear-triangle-width-8" hittest="false" />
+                                <Panel class="wear-triangle-row wear-triangle-width-10" hittest="false" />
+                                <Panel class="wear-triangle-row wear-triangle-width-12" hittest="false" />
+                            </Panel>
+                        </Panel>
+                    </Panel>
+                    <Panel class="wear-legend" hittest="false">
+                        <Label id="submenu_wear_legend_0" class="wear-legend-text" text="{s:text}" hittest="false" />
+                        <Label id="submenu_wear_legend_1" class="wear-legend-text" text="{s:text}" hittest="false" />
+                        <Label id="submenu_wear_legend_2" class="wear-legend-text" text="{s:text}" hittest="false" />
+                        <Label id="submenu_wear_legend_3" class="wear-legend-text" text="{s:text}" hittest="false" />
+                        <Label id="submenu_wear_legend_4" class="wear-legend-text" text="{s:text}" hittest="false" />
+                    </Panel>
+                    <Label id="submenu_wear_value" class="wear-value" text="{s:text}" hittest="false" />
+                </Panel>
+
+				<Button id="submenu_back" class="close-button submenu-back">
+					<Label id="submenu_back_text"
+                           text="{s:text}" hittest="false" />
+				</Button>
+
+				<Button id="submenu_close" class="close-button">
+					<Label id="submenu_close_text"
+                           text="{s:text}" hittest="false" />
+				</Button>
+
+			</Panel>
+		</Panel>
+	</Panel>
+</root>

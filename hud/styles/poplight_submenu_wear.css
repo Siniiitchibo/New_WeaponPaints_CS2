@@ -1,0 +1,310 @@
+.submenu-row-title
+{
+    width: fill-parent-flow(1);
+    vertical-align: center;
+}
+
+.submenu-hidden
+{
+    visibility: collapse;
+}
+
+.submenu-navigation
+{
+    width: 100%;
+    flow-children: right;
+    margin-bottom: 14px;
+}
+
+.submenu-nav-button
+{
+    width: 42px;
+    height: 30px;
+    background-color: #ffffff08;
+    border: 1px solid #ffffff12;
+    border-radius: 3px;
+}
+
+.submenu-nav-button Label
+{
+    horizontal-align: center;
+    vertical-align: center;
+    color: #b6e537;
+    font-family: Arial;
+    font-size: 24px;
+}
+
+.submenu-nav-button:hover
+{
+    background-color: #b6e53718;
+    border-color: #b6e53765;
+}
+
+.submenu-unavailable
+{
+    opacity: 0.25;
+}
+
+.submenu-page
+{
+    width: fill-parent-flow(1);
+    vertical-align: center;
+    text-align: center;
+
+    color: #94a18a;
+    font-family: Arial;
+    font-size: 13px;
+}
+
+.submenu-back
+{
+    margin-bottom: 6px;
+}
+
+.submenu-wear
+{
+    width: 100%;
+    flow-children: down;
+    margin-bottom: 12px;
+}
+
+.wear-title
+{
+    color: #cbd6bf;
+    font-family: Arial;
+    font-size: 12px;
+    margin-bottom: 2px;
+}
+
+.wear-track
+{
+    width: 100%;
+    height: 30px;
+}
+
+.wear-stops
+{
+    width: 100%;
+    height: 30px;
+    flow-children: right;
+}
+
+.wear-stop
+{
+    width: 2%;
+    height: 30px;
+    background-color: #00000000;
+}
+
+.wear-colour
+{
+    width: 100%;
+    height: 10px;
+    margin-top: 10px;
+}
+
+.wear-colour-0 { background-color: #59c94c; }
+.wear-colour-1 { background-color: #a8d849; }
+.wear-colour-2 { background-color: #ebc64b; }
+.wear-colour-3 { background-color: #ee9545; }
+.wear-colour-4 { background-color: #e54c5b; }
+
+.wear-stop:hover .wear-colour { opacity: 0.65; }
+.wear-disabled { opacity: 0.3; }
+
+.wear-marker
+{
+    width: 12px;
+    height: 30px;
+}
+
+.wear-triangle
+{
+    width: 12px;
+    height: 6px;
+    flow-children: down;
+}
+
+.wear-triangle-top { vertical-align: top; }
+.wear-triangle-bottom { vertical-align: bottom; }
+
+.wear-triangle-row
+{
+    height: 1px;
+    horizontal-align: center;
+    background-color: #f1f5eb;
+}
+
+.wear-triangle-width-2 { width: 2px; }
+.wear-triangle-width-4 { width: 4px; }
+.wear-triangle-width-6 { width: 6px; }
+.wear-triangle-width-8 { width: 8px; }
+.wear-triangle-width-10 { width: 10px; }
+.wear-triangle-width-12 { width: 12px; }
+
+.wear-legend
+{
+    width: 100%;
+    flow-children: right;
+    margin-bottom: 5px;
+}
+
+.wear-legend-text
+{
+    width: 20%;
+    color: #a3af99;
+    font-family: Arial;
+    font-size: 11px;
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+.wear-value
+{
+    width: 100%;
+    color: #cbd6bf;
+    font-family: Arial;
+    font-size: 12px;
+    white-space: normal;
+}
+
+.stattrak-checkbox
+{
+    width: 100%;
+    height: 28px;
+    flow-children: right;
+    margin-bottom: 8px;
+}
+
+.stattrak-box
+{
+    width: 18px;
+    height: 18px;
+    vertical-align: center;
+    border: 1px solid #a1ad9470;
+    border-radius: 3px;
+    background-color: #ffffff06;
+}
+
+.stattrak-tick
+{
+    width: 6px;
+    height: 10px;
+    horizontal-align: center;
+    vertical-align: center;
+    margin-top: -2px;
+    border-right: 2px solid #11180b;
+    border-bottom: 2px solid #11180b;
+    transform: rotateZ(45deg);
+    opacity: 0;
+}
+
+.stattrak-dash
+{
+    width: 8px;
+    height: 2px;
+    horizontal-align: center;
+    vertical-align: center;
+    background-color: #11180b;
+    opacity: 0;
+}
+
+.stattrak-checked .stattrak-box, .stattrak-mixed .stattrak-box
+{
+    background-color: #b6e537;
+    border-color: #b6e537;
+}
+
+.stattrak-checked .stattrak-tick { opacity: 1; }
+.stattrak-mixed .stattrak-dash { opacity: 1; }
+
+.stattrak-text
+{
+    width: fill-parent-flow(1);
+    vertical-align: center;
+    margin-left: 9px;
+    color: #dce6d2;
+    font-family: Arial;
+    font-size: 13px;
+}
+
+.stattrak-checkbox:hover .stattrak-text { color: #b6e537; }
+.stattrak-checkbox:hover .stattrak-box { border-color: #b6e537; }
+
+/* Keep the full 12px markers inside the fixed-width menu at both endpoints. */
+.wear-position-0 { margin-left: 0.00000%; }
+.wear-position-1 { margin-left: 1.95918%; }
+.wear-position-2 { margin-left: 3.91837%; }
+.wear-position-3 { margin-left: 5.87755%; }
+.wear-position-4 { margin-left: 7.83673%; }
+.wear-position-5 { margin-left: 9.79592%; }
+.wear-position-6 { margin-left: 11.75510%; }
+.wear-position-7 { margin-left: 13.71429%; }
+.wear-position-8 { margin-left: 15.67347%; }
+.wear-position-9 { margin-left: 17.63265%; }
+.wear-position-10 { margin-left: 19.59184%; }
+.wear-position-11 { margin-left: 21.55102%; }
+.wear-position-12 { margin-left: 23.51020%; }
+.wear-position-13 { margin-left: 25.46939%; }
+.wear-position-14 { margin-left: 27.42857%; }
+.wear-position-15 { margin-left: 29.38776%; }
+.wear-position-16 { margin-left: 31.34694%; }
+.wear-position-17 { margin-left: 33.30612%; }
+.wear-position-18 { margin-left: 35.26531%; }
+.wear-position-19 { margin-left: 37.22449%; }
+.wear-position-20 { margin-left: 39.18367%; }
+.wear-position-21 { margin-left: 41.14286%; }
+.wear-position-22 { margin-left: 43.10204%; }
+.wear-position-23 { margin-left: 45.06122%; }
+.wear-position-24 { margin-left: 47.02041%; }
+.wear-position-25 { margin-left: 48.97959%; }
+.wear-position-26 { margin-left: 50.93878%; }
+.wear-position-27 { margin-left: 52.89796%; }
+.wear-position-28 { margin-left: 54.85714%; }
+.wear-position-29 { margin-left: 56.81633%; }
+.wear-position-30 { margin-left: 58.77551%; }
+.wear-position-31 { margin-left: 60.73469%; }
+.wear-position-32 { margin-left: 62.69388%; }
+.wear-position-33 { margin-left: 64.65306%; }
+.wear-position-34 { margin-left: 66.61224%; }
+.wear-position-35 { margin-left: 68.57143%; }
+.wear-position-36 { margin-left: 70.53061%; }
+.wear-position-37 { margin-left: 72.48980%; }
+.wear-position-38 { margin-left: 74.44898%; }
+.wear-position-39 { margin-left: 76.40816%; }
+.wear-position-40 { margin-left: 78.36735%; }
+.wear-position-41 { margin-left: 80.32653%; }
+.wear-position-42 { margin-left: 82.28571%; }
+.wear-position-43 { margin-left: 84.24490%; }
+.wear-position-44 { margin-left: 86.20408%; }
+.wear-position-45 { margin-left: 88.16327%; }
+.wear-position-46 { margin-left: 90.12245%; }
+.wear-position-47 { margin-left: 92.08163%; }
+.wear-position-48 { margin-left: 94.04082%; }
+.wear-position-49 { margin-left: 96.00000%; }
+
+.menu-row.submenu-selected {
+    background-color: #b6e53718;
+    border-color: #b6e53785;
+}
+
+    .menu-row.submenu-selected:hover {
+        background-color: #b6e53728;
+        border-color: #b6e537;
+    }
+
+    .menu-row.submenu-selected .row-title {
+        color: #b6e537;
+    }
+
+    .menu-row.submenu-selected .row-number {
+        color: #b6e537;
+    }
+
+    .menu-row.submenu-selected .row-arrow {
+        width: 30px;
+        font-size: 16px;
+        font-weight: bold;
+        color: #b6e537;
+        text-align: right;
+    }

@@ -32,9 +32,13 @@ public partial class WeaponPaints
         CCSPlayerController player,
         Action<CCSPlayerController> openMenu)
     {
+        ulong steamId = player.SteamID;
+        int? userId = player.UserId;
+        int generation = _mapGeneration;
         Server.NextFrame(() =>
         {
-            if (CanUseWsMenu(player))
+            if (CanUseWsMenu(player) && player.SteamID == steamId &&
+                player.UserId == userId && generation == _mapGeneration)
             {
                 using var menuCulture = new MenuCulture(player);
                 openMenu(player);
@@ -232,6 +236,7 @@ public partial class WeaponPaints
                 defaultOption,
                 "wp_ws_default_gloves"
             );
+            SetMenuOptionSelection(typesMenu, defaultOption, target => GetGloveModelSelectionMarker(target, 0, GetWsCosmeticTeams(target, false)));
         }
 
         var gloveTypes = GlovesList
@@ -259,17 +264,32 @@ public partial class WeaponPaints
             string selectedDefindex = gloveType.Defindex;
             string selectedTypeName = gloveType.Name;
 
-            typesMenu.AddMenuOption(selectedTypeName, (player, _) =>
-            {
-                NavigateWs(player, target =>
+            var typeOption = typesMenu.AddMenuOption(
+                selectedTypeName,
+                (player, _) =>
                 {
-                    OpenWsGloveSkins(
-                        target,
-                        selectedDefindex,
-                        selectedTypeName,
-                        handleSelection);
+                    NavigateWs(player, target =>
+                    {
+                        OpenWsGloveSkins(
+                            target,
+                            selectedDefindex,
+                            selectedTypeName,
+                            handleSelection);
+                    });
                 });
-            });
+
+            if (ushort.TryParse(
+                    selectedDefindex, out ushort modelDefindex))
+            {
+                SetMenuOptionSelection(
+                    typesMenu,
+                    typeOption,
+                    target => GetGloveModelSelectionMarker(
+                        target,
+                        modelDefindex,
+                        GetWsCosmeticTeams(target, false))
+                );
+            }
         }
     }
 
@@ -292,6 +312,9 @@ public partial class WeaponPaints
 
         menu.PostSelectAction = PostSelectAction.Nothing;
 
+        if (int.TryParse(gloveDefindex, out int wearDefindex))
+            SetWearMenuContext(menu, wearDefindex, true, GetWsCosmeticTeams(player, false));
+
         var matchingGloves = GlovesList
             .Where(glove =>
                 glove["weapon_defindex"]?.ToString() == gloveDefindex &&
@@ -304,9 +327,28 @@ public partial class WeaponPaints
         {
             string paintName = glove["paint_name"]!.ToString();
 
-            menu.AddMenuOption(
+            if (!int.TryParse(
+                    glove["paint"]?.ToString(), out int paintId) ||
+                !int.TryParse(
+                    gloveDefindex, out int selectedGloveDefindex))
+            {
+                continue;
+            }
+
+            var skinOption = menu.AddMenuOption(
                 paintName,
                 (target, _) => handleSelection(target, paintName));
+
+            SetMenuOptionSelection(
+                menu,
+                skinOption,
+                target => GetSkinSelectionMarker(
+                    target,
+                    selectedGloveDefindex,
+                    paintId,
+                    true,
+                    GetWsCosmeticTeams(target, false))
+            );
         }
 
         menu.Open(player);
