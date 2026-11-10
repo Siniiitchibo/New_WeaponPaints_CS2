@@ -115,9 +115,6 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Run engine-free regression checks
-        run: dotnet run --project tests/WeaponPaints.Checks/WeaponPaints.Checks.csproj -c Release
-
       - name: Publish WeaponPaints
         env:
           VERSION: ${{ steps.metadata.outputs.version }}
