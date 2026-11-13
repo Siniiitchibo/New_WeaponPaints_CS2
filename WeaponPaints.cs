@@ -21,7 +21,7 @@ public partial class WeaponPaints : BasePlugin, IPluginConfig<WeaponPaintsConfig
     public override string ModuleAuthor => "Nereziel, daffyy, Siniii_tchibo";
 	public override string ModuleDescription => "Skin, gloves, agents and knife selector.";
 	public override string ModuleName => "New_WeaponPaints_CS2";
-	public override string ModuleVersion => "0.3.0";
+	public override string ModuleVersion => "0.3.1";
 
 	public override void Load(bool hotReload)
 	{

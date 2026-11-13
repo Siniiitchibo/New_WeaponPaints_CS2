@@ -12,6 +12,7 @@ namespace WeaponPaints
 	public partial class WeaponPaints
 	{
 		private bool _giveNamedItemHooked;
+        private readonly Dictionary<uint, PlayerActionGuard?> _pendingKnifeSpawnPaint = new();
 
         [GameEventHandler]
         public HookResult OnClientFullConnect(
@@ -98,6 +99,8 @@ namespace WeaponPaints
         {
             _fadeSeed = 0;
             _nextItemId = MinimumCustomItemId;
+            _knifeWearModels.Clear();
+            _pendingKnifeSpawnPaint.Clear();
             _gBCommandsAllowed = true;
             _playerWeaponImage.Clear();
             _playerPreviewTokens.Clear();
@@ -153,7 +156,7 @@ namespace WeaponPaints
 				var player = GetPlayerFromItemServices(itemServices);
 				if (player != null)
 				{
-					GivePlayerWeaponSkin(player, weapon);
+					GivePlayerWeaponSkin(player, weapon, fromGiveNamedItem: true);
 				}
 			}
 			catch { }
@@ -168,10 +171,16 @@ namespace WeaponPaints
 			if (designerName != null && designerName.Contains("weapon"))
 			{
                 var spawnedWeapon = new CHandle<CBasePlayerWeapon>(entity.EntityHandle.Raw);
+                if (designerName.Contains("knife") || designerName.Contains("bayonet"))
+                {
+                    _pendingKnifeSpawnPaint.TryAdd(spawnedWeapon.Raw, null);
+                }
+
                 int generation = _mapGeneration;
                 Server.NextWorldUpdate(() =>
                 {
                     if (!_cosmeticWorkActive || generation != _mapGeneration) return;
+                    _pendingKnifeSpawnPaint.Remove(spawnedWeapon.Raw, out var appliedFor);
                     var weapon = spawnedWeapon.Value;
                     if (weapon is null || !weapon.IsValid) return;
 
@@ -202,7 +211,12 @@ namespace WeaponPaints
 
 						if (string.IsNullOrEmpty(player?.PlayerName)) return;
 						if (!Utility.IsPlayerValid(player)) return;
-						
+
+						if (appliedFor is not null && appliedFor == CapturePlayerAction(player))
+						{
+							return;
+						}
+
 						GivePlayerWeaponSkin(player, weapon);
 					}
 					catch (Exception)

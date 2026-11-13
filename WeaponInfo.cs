@@ -6,7 +6,9 @@
 		public int Seed { get; set; }
 		public float Wear { get; set; }
 		public bool CustomWear { get; set; }
-		public string Nametag { get; set; } = "";
+        public uint RenderWearAttempt { get; set; }
+        public float? ManualRenderWear { get; set; }
+        public string Nametag { get; set; } = "";
 		public bool StatTrak { get; set; }
 		public int StatTrakCount { get; set; }
 		public KeyChainInfo? KeyChain { get; set; }

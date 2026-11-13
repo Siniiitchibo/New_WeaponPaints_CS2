@@ -49,8 +49,15 @@ public partial class WeaponPaints
         return 0f;
     }
 
-    private static bool UsesKnifeWearFix(WearMenuContext context, WeaponInfo info) =>
-        !context.Gloves && context.Defindex is >= 500 and < 5000 && info.Paint is 409 or 413;
+    private static bool UsesAutomaticKnifeWear(WearMenuContext context, WeaponInfo info) =>
+        !context.Gloves &&
+        context.Defindex is >= 500 and < 5000 &&
+        !info.CustomWear;
+
+    private static float GetDisplayedWear(WearMenuContext context, WeaponInfo info) =>
+        UsesAutomaticKnifeWear(context, info)
+            ? 0f
+            : float.IsFinite(info.Wear) ? Math.Clamp(info.Wear, 0f, 1f) : 0f;
 
     private static (int Slot, int Count) GetKnifeWearModelSlot(int defindex, int paint) =>
         _skinCatalog.KnifeModel(defindex, paint);
@@ -82,9 +89,9 @@ public partial class WeaponPaints
             if (displayedInfo is null)
                 displayedInfo = info;
             else
-                mixed |= Math.Abs(displayedInfo.Wear - info.Wear) > 0.00001f ||
-                    (displayedInfo.CustomWear != info.CustomWear &&
-                     (UsesKnifeWearFix(context, displayedInfo) || UsesKnifeWearFix(context, info)));
+                mixed |= Math.Abs(
+                    GetDisplayedWear(context, displayedInfo) - GetDisplayedWear(context, info))
+                    > 0.00001f;
         }
 
         bool enabled = displayedInfo is not null;
@@ -97,14 +104,8 @@ public partial class WeaponPaints
             return;
         }
 
-        float wear = float.IsFinite(displayedInfo!.Wear)
-            ? Math.Clamp(displayedInfo.Wear, 0f, 1f) : 0f;
-        bool automatic = UsesKnifeWearFix(context, displayedInfo) && !displayedInfo.CustomWear;
-        if (automatic)
-        {
-            var model = GetKnifeWearModelSlot(context.Defindex, displayedInfo.Paint);
-            wear = KnifeWearPolicy.AutomaticWear(model.Slot);
-        }
+        float wear = GetDisplayedWear(context, displayedInfo!);
+        bool automatic = UsesAutomaticKnifeWear(context, displayedInfo!);
         string condition = Localizer[WearConditionKeys[WearBar.Condition(wear)]].Value;
         // Four decimals prevent the end of FN (0.0699) from displaying as 0.070.
         string value = wear.ToString("0.0000", System.Globalization.CultureInfo.CurrentCulture);
@@ -133,13 +134,24 @@ public partial class WeaponPaints
             return;
 
         float wear = WearBar.ValueAt(step);
-        if (targets.All(info => info.CustomWear && Math.Abs(info.Wear - wear) < 0.000001f))
+        bool isKnife = !context.Gloves && context.Defindex is >= 500 and < 5000;
+
+        if (!isKnife &&
+            targets.All(info => info.CustomWear && Math.Abs(info.Wear - wear) < 0.000001f))
+        {
             return;
+        }
 
         // RefreshWeapons recreates items after 0.23 s; prevent overlapping refreshes.
         session.NextWearChangeUtc = DateTime.UtcNow.AddSeconds(0.5);
         foreach (var info in targets)
         {
+            bool samePosition = Math.Abs(GetDisplayedWear(context, info) - wear) < 0.000001f;
+
+            info.RenderWearAttempt = isKnife && samePosition
+                ? unchecked(info.RenderWearAttempt + 1)
+                : 0;
+            info.ManualRenderWear = null;
             info.Wear = wear;
             info.CustomWear = true;
         }

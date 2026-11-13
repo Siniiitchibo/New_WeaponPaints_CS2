@@ -18,7 +18,7 @@ public partial class WeaponPaints
     private readonly ConcurrentDictionary<int, CsTeam[]> _wsGloveTeams = new();
 
     private Action<CCSPlayerController>? _wsOpenAgents;
-    private Action<CCSPlayerController, string>? _wsOpenWeaponSkins;
+    private Action<CCSPlayerController, string, int?>? _wsOpenWeaponSkins;
 
     private bool CanUseWsMenu(CCSPlayerController? player)
     {
@@ -208,13 +208,11 @@ public partial class WeaponPaints
 
             menu.AddMenuOption(selectedWeapon, (p, _) =>
                 NavigateWs(p, target =>
-                    _wsOpenWeaponSkins?.Invoke(target, selectedWeapon)));
+                    _wsOpenWeaponSkins?.Invoke(target, selectedWeapon, null)));
         }
     }
 
-    private void AddWsGloveTypes(
-    IMenu typesMenu,
-    Action<CCSPlayerController?, string> handleSelection)
+    private void AddWsGloveTypes(IMenu typesMenu, Action<CCSPlayerController?, string> handleSelection)
     {
         var defaultGlove = GlovesList.FirstOrDefault(glove =>
             glove["paint"]?.ToString() == "0");
@@ -263,6 +261,7 @@ public partial class WeaponPaints
         {
             string selectedDefindex = gloveType.Defindex;
             string selectedTypeName = gloveType.Name;
+            int returnPage = typesMenu.MenuOptions.Count / PanoramaItemsPerPage;
 
             var typeOption = typesMenu.AddMenuOption(
                 selectedTypeName,
@@ -274,7 +273,8 @@ public partial class WeaponPaints
                             target,
                             selectedDefindex,
                             selectedTypeName,
-                            handleSelection);
+                            handleSelection,
+                            returnPage);
                     });
                 });
 
@@ -293,11 +293,7 @@ public partial class WeaponPaints
         }
     }
 
-    private void OpenWsGloveSkins(
-    CCSPlayerController player,
-    string gloveDefindex,
-    string gloveTypeName,
-    Action<CCSPlayerController?, string> handleSelection)
+    private void OpenWsGloveSkins(CCSPlayerController player, string gloveDefindex, string gloveTypeName, Action<CCSPlayerController?, string> handleSelection, int returnPage)
     {
         if (!CanUseWsMenu(player))
             return;
@@ -305,7 +301,11 @@ public partial class WeaponPaints
 
         var menu = Utility.CreateMenu(
             Localizer["wp_ws_glove_skin_title", gloveTypeName],
-            previousPlayer => _wsGlovesMenu?.Open(previousPlayer));
+            previousPlayer =>
+            {
+                if (_wsGlovesMenu is not null)
+                    OpenWsMenuAtPage(previousPlayer, _wsGlovesMenu, returnPage);
+            });
 
         if (menu == null)
             return;

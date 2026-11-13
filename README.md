@@ -1,6 +1,6 @@
 # PopLight WeaponPaints CS2
 
-A fully working and optimized version of CS2 WeaponPaints with a clickable Panorama menu for weapons, knives, gloves and agents.
+A fully working and hopefully optimized version of CS2 WeaponPaints with a clickable Panorama menu for weapons, knives, gloves and agents.
 
 Open the menu using `.ws` or `!ws` in chat, or `css_ws` in the console.
 
@@ -20,17 +20,23 @@ Open the menu using `.ws` or `!ws` in chat, or `css_ws` in the console.
 - Workshop-delivered Panorama resources, with editable layout and style sources included in the repository.
 - English and Slovak interface translations, per-player language selection and server-side text customization.
 
+## Recent improvements — 0.3.1
+
+- Replaced direct Kill calls in RefreshWeapons() with the engine’s native weapon-removal routine for knives, rifles, and pistols. The routine detaches the old entity from WeaponServices.MyWeapons before deletion, preventing stale CHandle entries from accumulating.
+- Applied the same cleanup to temporary weapons created during knife refresh if they were added to the player’s inventory.
+- Rifle and pistol replacements are queued only after the old handle is gone. The replacement keeps the original magazine and reserve ammo.
+- The Back button takes you back to the last page you opened, not to the beginning.
+- Fixed a bug where the vanilla skin was displayed instead of the selected skin, especially with “Tiger Tooth.” Still being tested!!!
+
 ## Recent improvements — 0.3.0
 
-The latest updates add wear controls, the StatTrak checkbox and current-selection highlighting, together with fixes to cosmetic updates and persistence:
-
+- Add wear controls, the StatTrak checkbox and current-selection highlighting, together with fixes to cosmetic updates and persistence:
 - Delayed operations are guarded against reconnects, team changes, pawn replacements and map changes.
 - Selecting a weapon or knife skin refreshes only the relevant weapon instead of rebuilding the entire inventory. Overlapping refresh requests are combined during rapid switching, including pending changes to different weapon types.
 - Database writes use independent snapshots of cosmetic settings, reducing SQL queries and keeping T and CT data separate.
 - StatTrak counts the weapon responsible for the kill. Grenade kills no longer increase the counter of the weapon currently being held, and counter changes are saved as they occur.
 - Fixed loading of incomplete data, combinations of disabled cosmetic features and overlapping agent previews.
 - Faster skin lookup and a corrected plugin update check.
-- Fixed live application of Tiger Tooth and Marble Fade on knives, while retaining per-knife material separation when players customize wear.
 
 ## Server requirements
 

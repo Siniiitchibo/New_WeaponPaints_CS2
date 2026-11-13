@@ -18,6 +18,15 @@ public partial class WeaponPaints
 
     private readonly Dictionary<int, PanoramaSession> _panoramaSessions = [];
     private readonly Dictionary<int, DateTime> _menuActionCooldowns = [];
+    private const int PanoramaItemsPerPage = 6;
+
+    private void OpenWsMenuAtPage(CCSPlayerController player, IMenu menu, int page)
+    {
+        if (menu is PanoramaMenu panoramaMenu)
+            OpenPanoramaMenu(player, panoramaMenu, page);
+        else
+            menu.Open(player);
+    }
 
     private sealed class PanoramaSession
     {
@@ -216,9 +225,7 @@ public partial class WeaponPaints
         _panoramaSessions.Remove(player.Slot);
     }
 
-    private void OpenPanoramaMenu(
-        CCSPlayerController player,
-        PanoramaMenu menu)
+    private void OpenPanoramaMenu(CCSPlayerController player, PanoramaMenu menu, int page = 0)
     {
         if (!CanUseWsMenu(player) ||
             _panoramaMain?.Entity is null ||
@@ -240,7 +247,7 @@ public partial class WeaponPaints
             UserId = player.UserId,
             Menu = menu,
             IsMain = isMain,
-            Page = 0
+            Page = page
         };
 
         _panoramaSessions[player.Slot] = session;
@@ -276,7 +283,7 @@ public partial class WeaponPaints
         if (panel is null)
             return;
 
-        const int perPage = 6;
+        const int perPage = PanoramaItemsPerPage;
 
         int count = session.Menu.MenuOptions.Count;
         int pages = Math.Max(1, (count + perPage - 1) / perPage);
@@ -613,7 +620,7 @@ public partial class WeaponPaints
 
             case "submenu_next":
                 if (!session.IsMain &&
-                    (session.Page + 1) * 6 < session.Menu.MenuOptions.Count)
+                    (session.Page + 1) * PanoramaItemsPerPage < session.Menu.MenuOptions.Count)
                 {
                     session.Page++;
                     DrawPanoramaMenu(player, session);

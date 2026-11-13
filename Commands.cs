@@ -1,11 +1,12 @@
-﻿using System.Collections.Concurrent;
-using CounterStrikeSharp.API;
+﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Commands;
+using CounterStrikeSharp.API.Modules.Entities;
 using CounterStrikeSharp.API.Modules.Menu;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
 using Newtonsoft.Json.Linq;
+using System.Collections.Concurrent;
 
 namespace WeaponPaints;
 
@@ -47,6 +48,144 @@ public partial class WeaponPaints
             player.Print(Localizer["wp_command_refresh_done"]);
     }
 
+    private void OnCommandInventoryCheck(CCSPlayerController? player, CommandInfo _)
+    {
+        if (player is null || !player.IsValid || player.IsBot)
+            return;
+
+        var pawn = player.PlayerPawn.Value;
+        if (pawn is not { IsValid: true } || pawn.WeaponServices is not { } services)
+        {
+            player.PrintToConsole("[WPCheck] Weapon inventory unavailable.");
+            return;
+        }
+
+        var weapons = services.MyWeapons;
+        var seen = new HashSet<uint>();
+
+        player.PrintToConsole(
+            $"[WPCheck] count={weapons.Count} " +
+            $"active={services.ActiveWeapon.Raw} last={services.LastWeapon.Raw}");
+
+        int index = 0;
+        foreach (var handle in weapons)
+        {
+            uint raw = handle.Raw;
+            bool duplicate = !seen.Add(raw);
+            var weapon = handle.IsValid ? handle.Value : null;
+
+            if (weapon is not { IsValid: true })
+            {
+                player.PrintToConsole(
+                    $"[WPCheck] #{index++} raw={raw} invalid duplicate={duplicate}");
+                continue;
+            }
+
+            var gear = weapon.As<CCSWeaponBase>().VData?.GearSlot;
+            player.PrintToConsole(
+                $"[WPCheck] #{index++} raw={raw} class={weapon.DesignerName} " +
+                $"def={weapon.AttributeManager.Item.ItemDefinitionIndex} " +
+                $"gear={gear} duplicate={duplicate}");
+
+            if (weapon.DesignerName is { } name && (name.Contains("knife") || name.Contains("bayonet")))
+            {
+                var knifeItem = weapon.AttributeManager.Item;
+
+                player.PrintToConsole(
+                    $"[WPCheck] knife raw={weapon.EntityHandle.Raw} " +
+                    $"itemId={knifeItem.ItemID} initialized={knifeItem.Initialized} " +
+                    $"quality={knifeItem.EntityQuality} wear={weapon.FallbackWear:R}");
+
+                player.PrintToConsole(
+                    $"[WPCheck] knife attrs: " +
+                    $"listCount={knifeItem.AttributeList.Attributes.Count} " +
+                    $"networkedCount={knifeItem.NetworkedDynamicAttributes.Attributes.Count}");
+            }
+        }
+
+        if (player is { IsValid: true } &&
+            player.PlayerPawn.Value is { IsValid: true } cosmeticPawn)
+        {
+            var gloves = cosmeticPawn.EconGloves;
+            var wearables = cosmeticPawn.MyWearables;
+            var model = cosmeticPawn.CBodyComponent?.SceneNode?.GetSkeletonInstance()
+                .ModelState.ModelName ?? "(nezistený)";
+
+            player.PrintToConsole(
+                $"[WPCheck] pawn={cosmeticPawn.EntityHandle.Raw} model={model}");
+
+            player.PrintToConsole(
+                $"[WPCheck] gloves def={gloves.ItemDefinitionIndex} " +
+                $"initialized={gloves.Initialized} itemId={gloves.ItemID}");
+
+            player.PrintToConsole($"[WPCheck] wearables count={wearables.Count}");
+
+            var seenWearables = new HashSet<uint>();
+            int wearableIndex = 0;
+
+            foreach (var handle in wearables)
+            {
+                var wearable = handle.Value;
+                bool duplicate = !seenWearables.Add(handle.Raw);
+
+                string state = wearable is { IsValid: true }
+                    ? $"class={wearable.DesignerName} " +
+                      $"def={wearable.AttributeManager.Item.ItemDefinitionIndex}"
+                    : "invalid";
+
+                player.PrintToConsole(
+                    $"[WPCheck] wearable #{wearableIndex++} raw={handle.Raw} " +
+                    $"{state} duplicate={duplicate}");
+            }
+        }
+    }
+
+    private void OnCommandFloat(CCSPlayerController? player, CommandInfo command)
+    {
+        if (player is null || !player.IsValid || player.IsBot)
+            return;
+
+        if (command.ArgCount != 2 ||
+            !float.TryParse(
+                command.GetArg(1),
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out float wear) ||
+            !float.IsFinite(wear) || wear < 0f || wear > 1f)
+        {
+            command.ReplyToCommand("Použitie: css_float 0.0062 (rozsah 0 až 1)");
+            return;
+        }
+
+        if (!player.PawnIsAlive || !_gBCommandsAllowed ||
+            !Config.Additional.SkinEnabled)
+        {
+            command.ReplyToCommand("Float sa teraz nedá použiť.");
+            return;
+        }
+
+        var weapon = player.PlayerPawn.Value?.WeaponServices?.ActiveWeapon.Value;
+        if (weapon is not { IsValid: true } ||
+            weapon.As<CCSWeaponBase>().VData?.GearSlot != gear_slot_t.GEAR_SLOT_KNIFE)
+        {
+            command.ReplyToCommand("Najprv vytiahni nôž.");
+            return;
+        }
+
+        int defindex = weapon.AttributeManager.Item.ItemDefinitionIndex;
+        if (!WeaponDefindex.TryGetValue(defindex, out var classname) ||
+            !HasChangedPaint(player, defindex, out var info) ||
+            info is null)
+        {
+            command.ReplyToCommand("Najprv nastav skin na tomto noži.");
+            return;
+        }
+
+        info.ManualRenderWear = wear;
+        RefreshWeapons(player, classname);
+        command.ReplyToCommand($"Float pre obnovu noža: {wear:R}");
+    }
+
     private void RegisterCommands()
 	{
         RegisterWsCommands();
@@ -82,7 +221,9 @@ public partial class WeaponPaints
 			});
 		}
 
-		AddCommand("wp_refresh", "Admin refresh player skins", (player, info) =>
+        AddCommand("css_float", "Set exact wear on the equipped knife", OnCommandFloat);
+        AddCommand("css_check", "Print weapon inventory diagnostics", OnCommandInventoryCheck);
+        AddCommand("wp_refresh", "Admin refresh player skins", (player, info) =>
 		{
 			OnCommandSkinRefresh(player, info);
 		});
@@ -201,7 +342,7 @@ public partial class WeaponPaints
         if (giveItemMenu == null)
             return;
 
-        void HandleGive(CCSPlayerController player, string knifeName)
+        void HandleGive(CCSPlayerController player, string knifeName, int returnPage)
         {
 			if (!Utility.IsPlayerValid(player)) return;
 
@@ -257,7 +398,7 @@ public partial class WeaponPaints
                     return;
                 }
 
-                _wsOpenWeaponSkins?.Invoke(target, knifeName);
+                _wsOpenWeaponSkins?.Invoke(target, knifeName, returnPage);
             });
         }
         foreach (var knifePair in knivesOnly)
@@ -269,9 +410,10 @@ public partial class WeaponPaints
                     ? Localizer["wp_ws_default_knife"].Value
                     : originalKnifeName;
 
+            int returnPage = giveItemMenu.MenuOptions.Count / PanoramaItemsPerPage;
             var knifeOption = giveItemMenu.AddMenuOption(
                 displayName,
-                (player, _) => HandleGive(player, originalKnifeName));
+                (player, _) => HandleGive(player, originalKnifeName, returnPage));
 
             SetMenuOptionSelection(giveItemMenu, knifeOption, target => GetKnifeSelectionMarker(target, knifePair.Key, GetWsCosmeticTeams(target, true)));
 
@@ -304,7 +446,7 @@ public partial class WeaponPaints
         if (weaponSelectionMenu == null)
             return;
 
-        _wsOpenWeaponSkins = (player, selectedWeapon) =>
+        _wsOpenWeaponSkins = (player, selectedWeapon, returnPage) =>
         {
                 if (!CanUseWsMenu(player))
                     return;
@@ -341,14 +483,15 @@ public partial class WeaponPaints
                     : [player.Team];
 
                 var skinSubMenu = Utility.CreateMenu(
-                Localizer["wp_skin_menu_skin_title", selectedWeapon],
-                target =>
-                {
-                    if (isKnifeSelection && _wsKnifeMenu != null)
-                        _wsKnifeMenu.Open(target);
-                    else
-                        OpenWsMainMenu(target);
-                });
+                    Localizer["wp_skin_menu_skin_title", selectedWeapon],
+                    target =>
+                    {
+                        var parentMenu = isKnifeSelection ? _wsKnifeMenu : _wsWeaponsMenu;
+                        if (returnPage is int page && parentMenu is not null)
+                            OpenWsMenuAtPage(target, parentMenu, page);
+                        else
+                            OpenWsMainMenu(target);
+                    });
 
                 if (skinSubMenu == null)
                     return;
@@ -383,20 +526,53 @@ public partial class WeaponPaints
                         if (!CanUseWsMenu(p))
                             return;
 
-                        foreach (var team in targetTeams)
+                    List<WeaponSaveEntry>? knifeSkinChanges = isKnifeSelection ? [] : null;
+
+                    foreach (var team in targetTeams)
+                    {
+                        var weaponInfo = GetWeaponInfo(p, team);
+
+                        if (knifeSkinChanges != null &&
+                            selectedPaintId > 0 &&
+                            GPlayerWeaponsInfo.TryGetValue(p.Slot, out var playerWeapons) &&
+                            playerWeapons.TryGetValue(team, out var teamWeapons))
                         {
-                            var weaponInfo = GetWeaponInfo(p, team);
+                            foreach (var entry in teamWeapons)
+                            {
+                                int otherDefindex = entry.Key;
+                                var otherKnife = entry.Value;
 
-                            weaponInfo.Paint = selectedPaintId;
-                            weaponInfo.Seed = 0;
+                                if (otherDefindex == weaponDefIndex ||
+                                    otherDefindex is < 500 or >= 5000 ||
+                                    otherKnife.Paint != selectedPaintId)
+                                {
+                                    continue;
+                                }
 
-                            // Preserve StatTrak and its kill counter.
+                                otherKnife.Paint = 0;
+                                otherKnife.Seed = 0;
+                                otherKnife.Wear = 0.01f;
+                                otherKnife.CustomWear = false;
+
+                                knifeSkinChanges.Add(new WeaponSaveEntry(
+                                    team, otherDefindex, CosmeticSnapshot.Copy(otherKnife)));
+                            }
                         }
 
-                        p.Print(
+                        if (isKnifeSelection && !weaponInfo.CustomWear)
+                            weaponInfo.Wear = 0f;
+                        weaponInfo.ManualRenderWear = null;
+                        weaponInfo.Paint = selectedPaintId;
+                        weaponInfo.Seed = 0;
+
+                        knifeSkinChanges?.Add(new WeaponSaveEntry(
+                            team, weaponDefIndex, CosmeticSnapshot.Copy(weaponInfo)));
+                    }
+
+                    p.Print(
                         Localizer["wp_skin_menu_select", skinLabel]);
 
-                        SaveWsWeaponSettings(p, selectedWeaponClassname);
+                        SaveWsWeaponSettings(p, selectedWeaponClassname, knifeSkinChanges?.ToArray());
                     });
                         SetMenuOptionSelection(skinSubMenu, skinOption, target => GetSkinSelectionMarker(target, weaponDefIndex, selectedPaintId, false, targetTeams));
             }
@@ -434,13 +610,12 @@ public partial class WeaponPaints
         {
             string selectedWeapon = weaponName;
 
+            int returnPage = weaponSelectionMenu.MenuOptions.Count / PanoramaItemsPerPage;
             weaponSelectionMenu.AddMenuOption(
                 selectedWeapon,
                 (player, _) =>
                     NavigateWs(player, target =>
-                        _wsOpenWeaponSkins?.Invoke(
-                            target,
-                            selectedWeapon)));
+                        _wsOpenWeaponSkins?.Invoke(target, selectedWeapon, returnPage)));
         }
 
         weaponSelectionMenu.PostSelectAction = PostSelectAction.Close;
@@ -448,10 +623,13 @@ public partial class WeaponPaints
     }
 
     private void SaveWsWeaponSettings(
-    CCSPlayerController player,
-    string weaponClassname)
+        CCSPlayerController player,
+        string weaponClassname,
+        WeaponSaveEntry[]? changedKnifeSkins = null)
     {
-        if (player.PawnIsAlive)
+        if (player.PawnIsAlive &&
+            (changedKnifeSkins == null ||
+             changedKnifeSkins.Any(entry => entry.Team == player.Team)))
         {
             RefreshWeapons(player, weaponClassname);
         }
@@ -472,7 +650,7 @@ public partial class WeaponPaints
         };
 
         int? defindex = WeaponDefindex.FirstOrDefault(pair => pair.Value == weaponClassname).Key;
-        var snapshot = CosmeticSnapshot.Capture(playerInfo.Slot, defindex);
+        var snapshot = changedKnifeSkins ?? CosmeticSnapshot.Capture(playerInfo.Slot, defindex);
         _ = QueuePlayerCosmeticWork(playerInfo.Slot,
             () => sync.SyncWeaponPaintsToDatabase(playerInfo, snapshot));
     }

@@ -11,9 +11,122 @@ namespace WeaponPaints
 {
 	public partial class WeaponPaints
 	{
+        private readonly Dictionary<(int Paint, int Seed, int WearStep), int>
+            _knifeWearModels = new();
+
+        private float ReserveKnifeWear(
+            int definitionIndex, int paint, int seed, float wear, bool manual = false)
+        {
+            if (paint <= 0 || !float.IsFinite(wear) || wear < 0f || wear > 1f)
+                return wear;
+
+            int requestedStep = (int)Math.Round(wear * 1000d);
+            var requestedKey = (paint, seed, requestedStep);
+
+            if (_knifeWearModels.TryAdd(requestedKey, definitionIndex) ||
+                _knifeWearModels[requestedKey] == definitionIndex ||
+                manual)
+            {
+                return wear;
+            }
+
+            int condition = WearBar.Condition(wear);
+            int firstPosition = condition * WearBar.StepsPerCondition;
+            int lastPosition = firstPosition + WearBar.StepsPerCondition - 1;
+            int firstStep = (int)Math.Floor(WearBar.ValueAt(firstPosition) * 1000d);
+            int lastStep = (int)Math.Ceiling(WearBar.ValueAt(lastPosition) * 1000d);
+
+            int maxDistance = Math.Max(requestedStep - firstStep, lastStep - requestedStep);
+            for (int distance = 1; distance <= maxDistance; distance++)
+            {
+                for (int direction = -1; direction <= 1; direction += 2)
+                {
+                    int step = requestedStep + distance * direction;
+                    if (step < firstStep || step > lastStep)
+                        continue;
+
+                    float candidate = Math.Max(0.0001f, step / 1000f);
+                    if (WearBar.Condition(candidate) != condition)
+                        continue;
+
+                    var key = (paint, seed, step);
+                    if (_knifeWearModels.TryAdd(key, definitionIndex) ||
+                        _knifeWearModels[key] == definitionIndex)
+                    {
+                        return candidate;
+                    }
+                }
+            }
+
+            Logger.LogWarning(
+                "[WPCheck] No free knife wear step for def={Def} paint={Paint} seed={Seed} wear={Wear:R}",
+                definitionIndex, paint, seed, wear);
+
+            return wear;
+        }
+
+        private static float GetRenderedWear(CCSPlayerController player, int defindex, int paint, float selectedWear, uint attempt = 0)
+        {
+            const int scale = 10_000;
+            const int maxOffset = 300;   // 0.0300
+            const int minSideGap = 80;  // 0.0080
+
+            float wear = float.IsFinite(selectedWear)
+                ? Math.Clamp(selectedWear, 0f, 1f)
+                : 0.01f;
+
+            int selected = (int)MathF.Round(wear * scale);
+            int firstStep = WearBar.Condition(wear) * WearBar.StepsPerCondition;
+            int lastStep = firstStep + WearBar.StepsPerCondition - 1;
+
+            int conditionMin = (int)MathF.Round(WearBar.ValueAt(firstStep) * scale);
+            int conditionMax = (int)MathF.Round(WearBar.ValueAt(lastStep) * scale);
+
+            int min = Math.Max(1, Math.Max(conditionMin, selected - maxOffset));
+            int max = Math.Min(scale - 1, Math.Min(conditionMax, selected + maxOffset));
+            int split = min + (max - min - minSideGap) / 2;
+
+            unchecked
+            {
+                ulong steamId = player.SteamID;
+                uint sharedSeed = Mix(
+                    (uint)steamId ^ (uint)(steamId >> 32) ^
+                    ((uint)paint * 0x9E3779B9u) ^ (uint)selected);
+
+                bool ctGetsLowerRange = (sharedSeed & 1u) == 0;
+                bool useLowerRange = (player.Team == CsTeam.CounterTerrorist) == ctGetsLowerRange;
+
+                int lower = useLowerRange ? min : split + minSideGap;
+                int upper = useLowerRange ? split : max;
+
+                uint itemSeed = Mix(sharedSeed ^ ((uint)defindex * 0x85EBCA6Bu));
+                int candidateCount = upper - lower + 1;
+                int stride = (candidateCount - 1) / 2;
+                if (candidateCount % 4 == 2)
+                    stride--;
+
+                ulong offset = (ulong)itemSeed + (ulong)attempt * (uint)stride;
+                int rendered = lower + (int)(offset % (uint)candidateCount);
+
+                return rendered / (float)scale;
+            }
+
+            static uint Mix(uint value)
+            {
+                unchecked
+                {
+                    value ^= value >> 16;
+                    value *= 0x7FEB352Du;
+                    value ^= value >> 15;
+                    value *= 0x846CA68Bu;
+                    return value ^ (value >> 16);
+                }
+            }
+        }
         private void GivePlayerWeaponSkin(
             CCSPlayerController player,
-            CBasePlayerWeapon weapon)
+            CBasePlayerWeapon weapon,
+            bool fromGiveNamedItem = false)
         {
             if (!ArePlayerCosmeticsReady(player))
                 return;
@@ -91,14 +204,20 @@ namespace WeaponPaints
 				// Random skins
 				weapon.FallbackPaintKit = GetRandomPaint(weaponDefIndex);
 				weapon.FallbackSeed = 0;
-				weapon.FallbackWear = 0.01f;
-                if (isKnife && weapon.FallbackPaintKit is 409 or 413)
+                weapon.FallbackWear = isKnife
+                    ? GetRenderedWear(player, weaponDefIndex, weapon.FallbackPaintKit, 0f)
+                    : 0.01f;
+
+                if (isKnife)
                 {
-                    var randomModel = GetKnifeWearModelSlot(weaponDefIndex, weapon.FallbackPaintKit);
-                    weapon.FallbackWear = KnifeWearPolicy.AutomaticWear(randomModel.Slot);
+                    weapon.FallbackWear = ReserveKnifeWear(
+                        weaponDefIndex,
+                        weapon.FallbackPaintKit,
+                        weapon.FallbackSeed,
+                        weapon.FallbackWear);
                 }
-			
-				weapon.AttributeManager.Item.NetworkedDynamicAttributes.Attributes.RemoveAll();
+
+                weapon.AttributeManager.Item.NetworkedDynamicAttributes.Attributes.RemoveAll();
 				CAttributeListSetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.NetworkedDynamicAttributes.Handle, "set item texture prefab", weapon.FallbackPaintKit);
 				CAttributeListSetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.NetworkedDynamicAttributes.Handle, "set item texture seed", 0);
 				CAttributeListSetOrAddAttributeValueByName.Invoke(weapon.AttributeManager.Item.NetworkedDynamicAttributes.Handle, "set item texture wear", weapon.FallbackWear);
@@ -132,13 +251,25 @@ namespace WeaponPaints
 			
 			weapon.FallbackSeed = weaponInfo is { Paint: 38, Seed: 0 } ? _fadeSeed++ : weaponInfo.Seed;
 
-            weapon.FallbackWear = weaponInfo.Wear;
+            float selectedWear = isKnife && !weaponInfo.CustomWear
+                ? 0f
+                : weaponInfo.Wear;
 
-            if (isKnife && weaponInfo.Paint is 409 or 413)
+            weapon.FallbackWear = weaponInfo.ManualRenderWear
+                ?? (isKnife || weaponInfo.CustomWear
+                    ? GetRenderedWear(
+                        player, weaponDefIndex, weaponInfo.Paint, selectedWear,
+                        weaponInfo.RenderWearAttempt)
+                    : selectedWear);
+
+            if (isKnife)
             {
-                var model = GetKnifeWearModelSlot(weaponDefIndex, weaponInfo.Paint);
-                weapon.FallbackWear = KnifeWearPolicy.RenderWear(
-                    weaponInfo.Wear, weaponInfo.CustomWear, model.Slot, model.Count);
+                weapon.FallbackWear = ReserveKnifeWear(
+                    weaponDefIndex,
+                    weapon.FallbackPaintKit,
+                    weapon.FallbackSeed,
+                    weapon.FallbackWear,
+                    manual: weaponInfo.ManualRenderWear.HasValue);
             }
 
             nint networkAttributes =
@@ -199,13 +330,16 @@ namespace WeaponPaints
 			if (fallbackPaintKit == 0)
 				return;
 
-			if (weaponInfo.KeyChain != null) SetKeychain(player, weapon);
-			if (weaponInfo.Stickers.Count > 0) SetStickers(player, weapon);
             isLegacyModel = _skinCatalog.IsLegacy(weaponDefIndex, fallbackPaintKit);
 			UpdatePlayerWeaponMeshGroupMask(player, weapon, isLegacyModel);
+
+            if (fromGiveNamedItem && isKnife &&
+                _pendingKnifeSpawnPaint.ContainsKey(weapon.EntityHandle.Raw))
+            {
+                _pendingKnifeSpawnPaint[weapon.EntityHandle.Raw] = CapturePlayerAction(player);
+            }
 		}
 		
-		// silly method to update sticker when call RefreshWeapons()
 		private void IncrementWearForWeaponWithStickers(CCSPlayerController player, CBasePlayerWeapon weapon)
 		{
 			int weaponDefIndex = weapon.AttributeManager.Item.ItemDefinitionIndex;
@@ -403,34 +537,88 @@ namespace WeaponPaints
                         if (!matches) continue;
                     }
 
+                    if (weaponData.GearSlot is gear_slot_t.GEAR_SLOT_RIFLE or gear_slot_t.GEAR_SLOT_PISTOL)
+                    {
+                        if (weapon.Value is not { IsValid: true } originalWeapon ||
+                            !WeaponDefindex.TryGetValue(
+                                originalWeapon.AttributeManager.Item.ItemDefinitionIndex,
+                                out var weaponClassname))
+                        {
+                            continue;
+                        }
 
-					if (weaponData.GearSlot is gear_slot_t.GEAR_SLOT_RIFLE or gear_slot_t.GEAR_SLOT_PISTOL)
-					{
-						if (!WeaponDefindex.TryGetValue(weapon.Value.AttributeManager.Item.ItemDefinitionIndex, out var weaponByDefindex))
-							continue;
+                        int clip1 = originalWeapon.Clip1;
+                        int reservedAmmo = originalWeapon.ReserveAmmo[0];
+                        var weaponHandle = new CHandle<CBasePlayerWeapon>(weapon.Raw);
 
-						int clip1 = weapon.Value.Clip1;
-						int reservedAmmo = weapon.Value.ReserveAmmo[0];
+                        AddTimer(0.1f, () =>
+                        {
+                            if (!IsCurrentPlayerAction(player, actionGuard))
+                                return;
 
-						if (!weaponsWithAmmo.TryGetValue(weaponByDefindex, out var value))
-						{
-							value = [];
-							weaponsWithAmmo.Add(weaponByDefindex, value);
-						}
+                            var services = player.PlayerPawn.Value?.WeaponServices;
+                            var ownedWeapon = weaponHandle.Value;
 
-						value.Add((clip1, reservedAmmo));
+                            if (services == null ||
+                                ownedWeapon is not { IsValid: true } ||
+                                !services.MyWeapons.Any(handle => handle.Raw == weaponHandle.Raw))
+                            {
+                                return;
+                            }
 
-						if (gun.VData == null) return;
-						
-						weapon.Value?.AddEntityIOEvent("Kill", weapon.Value, null, "", 0.1f);
-					}
+                            try
+                            {
+                                RemoveOwnedKnife.Value.Invoke(services.Handle, ownedWeapon.Handle);
 
-					if (weaponData.GearSlot == gear_slot_t.GEAR_SLOT_KNIFE)
-					{
-						weapon.Value?.AddEntityIOEvent("Kill", weapon.Value, null, "", 0.1f);
-						hasKnife = true;
-					}
-				}
+                                if (services.MyWeapons.Any(handle => handle.Raw == weaponHandle.Raw))
+                                    return;
+
+                                if (!weaponsWithAmmo.TryGetValue(weaponClassname, out var ammoEntries))
+                                {
+                                    ammoEntries = [];
+                                    weaponsWithAmmo.Add(weaponClassname, ammoEntries);
+                                }
+
+                                ammoEntries.Add((clip1, reservedAmmo));
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.LogWarning(ex, "Unable to remove weapon {WeaponClassname}.", weaponClassname);
+                            }
+                        }, TimerFlags.STOP_ON_MAPCHANGE);
+                    }
+
+                    if (weaponData.GearSlot == gear_slot_t.GEAR_SLOT_KNIFE)
+                    {
+                        hasKnife = true;
+                        var knifeHandle = new CHandle<CBasePlayerWeapon>(weapon.Raw);
+
+                        AddTimer(0.1f, () =>
+                        {
+                            if (!IsCurrentPlayerAction(player, actionGuard))
+                                return;
+
+                            var services = player.PlayerPawn.Value?.WeaponServices;
+                            var knife = knifeHandle.Value;
+
+                            if (services == null ||
+                                knife is not { IsValid: true } ||
+                                !services.MyWeapons.Any(handle => handle.Raw == knifeHandle.Raw))
+                            {
+                                return;
+                            }
+
+                            try
+                            {
+                                RemoveOwnedKnife.Value.Invoke(services.Handle, knife.Handle);
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.LogWarning(ex, "Unable to remove the original knife.");
+                            }
+                        }, TimerFlags.STOP_ON_MAPCHANGE);
+                    }
+                }
 				catch (Exception ex)
 				{
                     Logger.LogWarning(ex, "Unable to refresh a weapon.");
@@ -444,7 +632,7 @@ namespace WeaponPaints
                         if (!IsCurrentPlayerAction(player, actionGuard)) return;
 
 						if (!PlayerHasKnife(player) && hasKnife)
-						{
+						{        
 							var newKnife = new CBasePlayerWeapon(player.GiveNamedItem(CsItem.Knife));
 							var newWeapon = new CBasePlayerWeapon(player.GiveNamedItem(CsItem.USP));
 							player.GiveNamedItem(CsItem.Knife);
@@ -455,11 +643,26 @@ namespace WeaponPaints
 								try
 								{
                                     if (!IsCurrentPlayerAction(player, actionGuard)) return;
-									if (newKnife != null && newKnife.IsValid)
-										newKnife.AddEntityIOEvent("Kill", newKnife, null, "", 0.01f);
-									if (newWeapon != null && newWeapon.IsValid)
-										newWeapon.AddEntityIOEvent("Kill", newWeapon, null, "", 0.01f);
-								}
+                                    var services = player.PlayerPawn.Value?.WeaponServices;
+
+                                    foreach (var temporaryWeapon in new[] { newKnife, newWeapon })
+                                    {
+                                        if (temporaryWeapon is not { IsValid: true })
+                                            continue;
+
+                                        var raw = temporaryWeapon.EntityHandle.Raw;
+
+                                        if (services != null &&
+                                            services.MyWeapons.Any(handle => handle.Raw == raw))
+                                        {
+                                            RemoveOwnedKnife.Value.Invoke(services.Handle, temporaryWeapon.Handle);
+                                        }
+                                        else
+                                        {
+                                            temporaryWeapon.AddEntityIOEvent("Kill", temporaryWeapon, null, "", 0.01f);
+                                        }
+                                    }
+                                }
 								catch (Exception ex)
 								{
                                     Logger.LogWarning(ex, "Error executing AddEntityIOEvent.");
@@ -602,17 +805,21 @@ namespace WeaponPaints
                     {
                         item.ItemDefinitionIndex = 0;
                         item.Initialized = false;
-                        player.ExecuteClientCommand("lastinv");
-                        return;
                     }
-                    if (!HasChangedPaint(player, gloveId, out var weaponInfo) || weaponInfo is null)
+                    else
+                    {
+                        if (!HasChangedPaint(player, gloveId, out var weaponInfo) || weaponInfo is null)
                         return;
 
 					item.ItemDefinitionIndex = gloveId;
 					
 					UpdatePlayerEconItemId(item);
 
-					item.NetworkedDynamicAttributes.Attributes.RemoveAll();
+                    float renderedWear = weaponInfo.CustomWear
+                        ? GetRenderedWear(player, gloveId, weaponInfo.Paint, weaponInfo.Wear)
+                        : weaponInfo.Wear;
+
+                    item.NetworkedDynamicAttributes.Attributes.RemoveAll();
 					CAttributeListSetOrAddAttributeValueByName.Invoke(item.NetworkedDynamicAttributes.Handle, "set item texture prefab", weaponInfo.Paint);
 					CAttributeListSetOrAddAttributeValueByName.Invoke(item.NetworkedDynamicAttributes.Handle, "set item texture seed", weaponInfo.Seed);
 					CAttributeListSetOrAddAttributeValueByName.Invoke(item.NetworkedDynamicAttributes.Handle, "set item texture wear", weaponInfo.Wear);
@@ -623,9 +830,10 @@ namespace WeaponPaints
 					CAttributeListSetOrAddAttributeValueByName.Invoke(item.AttributeList.Handle, "set item texture wear", weaponInfo.Wear);
 
 					item.Initialized = true;
-				
-					//force gloves model refresh to prevent model overlap
-					player.ExecuteClientCommand("lastinv");
+                    }
+
+                    //force gloves model refresh to prevent model overlap
+                    player.ExecuteClientCommand("lastinv");
 					SetBodygroup(pawn, "first_or_third_person", 0);
 					AddTimer(0.2f, () =>
 					{
