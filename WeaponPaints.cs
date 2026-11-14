@@ -21,7 +21,7 @@ public partial class WeaponPaints : BasePlugin, IPluginConfig<WeaponPaintsConfig
     public override string ModuleAuthor => "Nereziel, daffyy, Siniii_tchibo";
 	public override string ModuleDescription => "Skin, gloves, agents and knife selector.";
 	public override string ModuleName => "New_WeaponPaints_CS2";
-	public override string ModuleVersion => "0.3.1";
+	public override string ModuleVersion => "0.3.2";
 
 	public override void Load(bool hotReload)
 	{
@@ -31,6 +31,7 @@ public partial class WeaponPaints : BasePlugin, IPluginConfig<WeaponPaintsConfig
         Utility.LoadSkinsFromFile(Path.Combine(ModuleDirectory, "data", $"skins_{_config.SkinsLanguage}.json"));
         Utility.LoadGlovesFromFile(Path.Combine(ModuleDirectory, "data", $"gloves_{_config.SkinsLanguage}.json"));
         Utility.LoadAgentsFromFile(Path.Combine(ModuleDirectory, "data", $"agents_{_config.SkinsLanguage}.json"));
+        LoadGameCosmetics();
         _skinCatalog = new SkinCatalog(SkinsList);
         InitializePanoramaMenus(hotReload);
 

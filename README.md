@@ -20,6 +20,10 @@ Open the menu using `.ws` or `!ws` in chat, or `css_ws` in the console.
 - Workshop-delivered Panorama resources, with editable layout and style sources included in the repository.
 - English and Slovak interface translations, per-player language selection and server-side text customization.
 
+## Recent improvements — 0.3.2
+
+- New skins and models are added automatically after CS2 update.
+
 ## Recent improvements — 0.3.1
 
 - Replaced direct Kill calls in RefreshWeapons() with the engine’s native weapon-removal routine for knives, rifles, and pistols. The routine detaches the old entity from WeaponServices.MyWeapons before deletion, preventing stale CHandle entries from accumulating.
@@ -87,120 +91,6 @@ To customize interface text, edit the plugin's `lang/en.json` or `lang/sk.json` 
 Menu labels use plain text; their appearance is controlled by CSS. Chat messages support CounterStrikeSharp color tags.
 
 `SkinsLanguage` is a separate plugin setting for cosmetic names loaded from `data`. Use a language available in that folder, such as `en` or `cs`. The Slovak interface does not require `SkinsLanguage` to be set to `sk`.
-
-## Building the plugin
-
-Install the .NET 10 SDK, then build using Visual Studio Publish or `dotnet publish`.
-
-Example PowerShell command:
-
-```powershell
-dotnet publish "E:\GitHub\New_WeaponPaints_CS2\WeaponPaints.csproj" -c Release -o "E:\GitHub\New_WeaponPaints_CS2\publish"
-```
-
-Replace the example repository path with your own. Keep the published dependencies and the `data` and `lang` folders together. The release workflow packages the server files into the ready-to-extract folder structure.
-
-## Editing the menu
-
-The active menu sources are:
-
-```text
-hud/layout/poplight_menu.xml
-hud/styles/poplight_menu.css
-hud/layout/poplight_submenu_wear.xml
-hud/styles/poplight_submenu_wear.css
-```
-
-The selection submenu also includes the main stylesheet. Its layout contains the skin list, pagination, StatTrak checkbox, wear bar and navigation buttons.
-
-XML defines the layout, while CSS controls the appearance. Layout and styling changes require recompiling and updating the Workshop addon. Server-provided text is customized through the translation files.
-
-Keep existing panel and button IDs unless you also update their references in the plugin's Panorama code. The active submenu uses the `_wear` filename; editing an older `poplight_submenu.xml` or `.css` file will not change it.
-
-## Compiling and testing the menu
-
-Install Counter-Strike 2 Workshop Tools and close CS2 before compiling. Run the commands below in PowerShell, replacing the repository and game paths with your own.
-
-Use the CS2 installation directory containing both `game` and `content`, rather than the dedicated server directory or the `game/csgo` subfolder.
-
-To compile the Workshop addon:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "E:\GitHub\New_WeaponPaints_CS2\hud\BuildPoplightMenu.ps1" -Cs2 "C:\Hry\Steam\steamapps\common\Counter-Strike Global Offensive"
-```
-
-For local testing of the selection submenu before publishing:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "E:\GitHub\New_WeaponPaints_CS2\hud\BuildPoplightMenu.ps1" -Cs2 "C:\Hry\Steam\steamapps\common\Counter-Strike Global Offensive" -InstallForLocalTest
-```
-
-The script compiles two layouts and two stylesheets. Check that all four resources finish successfully. Restart CS2 after each build because Panorama caches layouts.
-
-Compiled resources are written to:
-
-```text
-<CS2 installation>/game/csgo_addons/poplight_menu/panorama/layout/custom_game/poplight_menu.vxml_c
-<CS2 installation>/game/csgo_addons/poplight_menu/panorama/layout/custom_game/poplight_submenu_wear.vxml_c
-<CS2 installation>/game/csgo_addons/poplight_menu/panorama/styles/custom_game/poplight_menu.vcss_c
-<CS2 installation>/game/csgo_addons/poplight_menu/panorama/styles/custom_game/poplight_submenu_wear.vcss_c
-```
-
-Compiled resources are generated locally and excluded from Git.
-
-`-InstallForLocalTest` additionally copies the two compiled `_wear` submenu files into your client's `game/csgo/panorama` folders. It does not publish a Workshop update or install the menu for other players.
-
-Before testing the published Workshop version, remove these two local test copies and restart CS2:
-
-```text
-<CS2 installation>/game/csgo/panorama/layout/custom_game/poplight_submenu_wear.vxml_c
-<CS2 installation>/game/csgo/panorama/styles/custom_game/poplight_submenu_wear.vcss_c
-```
-
-## Publishing your own Workshop menu
-
-### Prepare packaging
-
-Back up the client installation's `game/csgo/gameinfo.gi`. Inside `AddonConfig` → `VpkDirectories`, ensure these entries are present:
-
-```text
-"include"    "panorama/layout/custom_game"
-"include"    "panorama/styles/custom_game"
-```
-
-Preserve all other entries. Close and reopen Workshop Manager after changing this configuration.
-
-### Publish
-
-1. Compile the menu using the script above.
-2. Launch **Counter-Strike 2 Workshop Tools** from Steam.
-3. Select `poplight_menu` and click **Launch Tools**.
-4. In Asset Browser, open **Tools → Workshop Manager**.
-5. Click **New** and select your compiled addon folder.
-6. Enter a title and description, choose a preview image and set suitable visibility.
-7. Open **Contents** and verify that the package includes the two `.vxml_c` and two `.vcss_c` resources listed above.
-8. Submit the item and replace the default Workshop ID in `mm_client_extra_addons` with your own item ID.
-9. Restart the server and test with a client that has no manually installed menu copies.
-
-Workshop game-mode tags categorize the item; they do not change the server's game mode. Publishing your own item does not require changing the C# code if resource paths and IDs remain unchanged.
-
-## Updating a published menu
-
-Translation-only changes require updating the server's translation files and restarting the server.
-
-After changing XML or CSS:
-
-1. Run `BuildPoplightMenu.ps1` again using the full command above.
-2. Open **Tools → Workshop Manager**.
-3. Select the existing item and click **Re-Upload** to upload the updated addon files. **Edit** changes the item's information.
-4. Keep the same Workshop item ID.
-5. Remove any local test copies, let Steam download the update and restart CS2 before testing.
-
-Publishing the server plugin alone does not update Workshop resources. Changes that introduce new controls or styling may require updating both the plugin and the addon.
-
-## Versioning
-
-Keep `VERSION` synchronized with `ModuleVersion` in `WeaponPaints.cs`. Use a new version for each release so previous builds remain easy to identify and restore.
 
 ## Credits and licenses
 

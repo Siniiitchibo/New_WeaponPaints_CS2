@@ -817,7 +817,7 @@ public partial class WeaponPaints
                 {
                     string image = selectedAgent["image"]?.ToString() ?? "";
 
-                    if (!string.IsNullOrWhiteSpace(image))
+                    if (image.StartsWith("s2r://panorama/images/econ/characters/", StringComparison.Ordinal))
                     {
                         NavigateWs(player, target =>
                         {
